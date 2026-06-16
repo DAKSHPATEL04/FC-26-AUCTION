@@ -1,0 +1,23 @@
+{
+  "name": "auction",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "seed:players": "node scripts/importPlayers.js",
+    "seed:admin": "node scripts/createAdmin.js",
+    "seed": "node scripts/createAdmin.js && node scripts/importPlayers.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "mongoose": "^9.7.0"
+  }
+}

@@ -1,0 +1,1638 @@
+================================================================================
+FC 26 FRIENDS AUCTION PLATFORM
+COMPLETE BUILD DOCUMENT - AI CODE EDITOR REFERENCE
+================================================================================
+
+Stack: Next.js 15 · TypeScript · Tailwind CSS · shadcn/ui · Express.js · MongoDB Atlas · Socket.IO
+Deployment: Vercel (frontend) · Railway or Render (backend) · MongoDB Atlas (database)
+Purpose: Private friend-group IPL-style auction for EA FC 26 fantasy teams
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+1.  Project Overview
+2.  Build Strategy and Phase Plan
+3.  Tech Stack and Environment Setup
+4.  Player Data Pipeline
+5.  Database Schema
+6.  Folder Structure
+7.  Authentication Module
+8.  Player Database Module
+9.  Team Management Module
+10. Auction Pool Module
+11. Live Auction and Socket.IO Architecture
+12. Auction Controls Module
+13. Sold Player and Budget Management
+14. Watchlist Module
+15. Statistics and History Module
+16. Export Module
+17. Complete API Reference
+18. UI UX Design System
+19. Every Page Layout and Components
+20. Mobile Bidding Screen
+21. MVP Roadmap and Feature Flags
+22. Prompts for AI Code Editors
+23. Deployment Guide
+24. Common Pitfalls and Fixes
+
+================================================================================
+PART 1 - PROJECT OVERVIEW
+================================================================================
+
+WHAT THIS IS
+------------
+A private, friend-group-only web app replicating the IPL auction experience
+for EA FC 26 fantasy team building.
+
+- NOT a public marketplace
+- NOT a commercial product
+- NOT a real-money platform
+
+CORE EXPERIENCE ANALOGY
+------------------------
+Player Discovery    = EA FC Ratings website - search, filter, cards, full stats
+Auction System      = IPL auction - live bidding, timer, budgets, sold/unsold
+Team Management     = Fantasy Premier League - squad, budget tracker, rankings
+Admin Controls      = Broadcast studio - one admin controls all states
+
+USER ROLES
+----------
+Role          Count       Capability                      Login
+-----------   ---------   -----------------------------   --------
+Admin         1           Full control, create/run all    Required
+Team Owner    8-12        Bid and manage squad            Required
+Guest         Anyone      Watch only                      Not required
+
+PROBLEMS THIS SOLVES
+---------------------
+- No Excel sheets, everything inside one platform
+- No manual player entry, import from community FC 26 JSON dataset
+- No tab switching, search, auction, budgets all in one screen
+- Real-time, every bid visible to all owners simultaneously
+- Mobile-first bidding, owners bid on phones, admin on desktop
+
+================================================================================
+PART 2 - BUILD STRATEGY AND PHASE PLAN
+================================================================================
+
+RULE: Never build all 15 modules at once. Follow this sequence.
+Each phase produces a usable product.
+
+PHASE 1 - FOUNDATION (Days 1-3)
+---------------------------------
+1. Project scaffold: Next.js 15 + TypeScript + Tailwind + shadcn/ui
+2. MongoDB Atlas connection + Mongoose models
+3. JWT Authentication (Admin + Team Owner + Guest roles)
+4. Player data import script, load FC 26 JSON into MongoDB
+5. Player Database page, search, filter, cards (read-only first)
+
+PHASE 2 - PRE-AUCTION SETUP (Days 4-5)
+----------------------------------------
+1. Team Management, create teams, assign owners, set budgets
+2. Auction Pool, search players, add to pool, reorder
+3. Admin Dashboard, stats cards, quick navigation
+
+PHASE 3 - CORE AUCTION (Days 6-8)
+------------------------------------
+1. Socket.IO server setup on Express backend
+2. Live Auction screen, current player card, timer, bid history
+3. Bidding logic, validation, race condition protection, budget deduction
+4. Auction Controls, start, pause, skip, unsold, undo
+
+PHASE 4 - POST-AUCTION (Days 9-10)
+-------------------------------------
+1. Squad view per team
+2. Statistics page
+3. Export, PDF and CSV
+4. Watchlist for team owners
+
+PHASE 5 - POLISH (Days 11-12)
+-------------------------------
+1. Season history
+2. Transfer market
+3. Animations and transitions
+4. Mobile responsiveness audit
+
+NOTE: Ship after Phase 3. Phases 4-5 are enhancements added after real feedback.
+
+MODULE PRIORITY TABLE
+----------------------
+Module                      Phase       Priority
+-----------------------     -------     -----------
+Authentication              Phase 1     Must Have
+Player Database             Phase 1     Must Have
+Team Management             Phase 2     Must Have
+Auction Pool                Phase 2     Must Have
+Live Auction                Phase 3     Must Have
+Auction Controls            Phase 3     Must Have
+Sold Player + Budget        Phase 3     Must Have
+Watchlist                   Phase 4     Nice to Have
+Statistics                  Phase 4     Nice to Have
+Export PDF/CSV              Phase 4     Nice to Have
+Squad Builder drag-drop     Phase 5     Defer
+Transfer Market             Phase 5     Defer
+Season History              Phase 5     Defer
+
+================================================================================
+PART 3 - TECH STACK AND ENVIRONMENT SETUP
+================================================================================
+
+COMPLETE STACK
+---------------
+Layer               Technology
+-----------------   --------------------------------------------------
+Framework           Next.js 15 App Router + TypeScript
+Styling             Tailwind CSS v3 + shadcn/ui
+Animations          Framer Motion v11
+Icons               Lucide React
+State Client        Zustand (global) + React Query (server state)
+Backend             Node.js + Express.js (separate server)
+Database            MongoDB Atlas + Mongoose ODM
+Realtime            Socket.IO v4
+Authentication      JWT (jsonwebtoken) + bcryptjs
+File Upload         Multer (team logos)
+PDF Export          jsPDF + jsPDF-autotable
+CSV Export          json2csv
+Deployment          Vercel (frontend) + Railway/Render (backend)
+
+CRITICAL CONSTRAINTS
+---------------------
+- Use Next.js 15 App Router ONLY. Do not mix pages/ and app/ directories.
+- Socket.IO must live on the Express server, not in Next.js API routes.
+  Next.js serverless functions do not support persistent socket connections.
+- Express server runs on port 4000. Next.js runs on port 3000.
+  CORS must allow both localhost:3000 and your Vercel domain.
+
+ENVIRONMENT VARIABLES
+
+Frontend .env.local:
+  NEXT_PUBLIC_API_URL=http://localhost:4000
+  NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
+  NEXT_PUBLIC_APP_NAME=FC 26 Auction
+
+Backend .env:
+  MONGODB_URI=mongodb+srv://...your atlas connection string...
+  JWT_SECRET=...long random string min 32 chars...
+  PORT=4000
+  NODE_ENV=development
+  FRONTEND_URL=http://localhost:3000
+  FUTDB_API_KEY=...your futdb.app api key...
+
+================================================================================
+PART 4 - PLAYER DATA PIPELINE
+================================================================================
+
+THE PROBLEM
+------------
+EA does not provide a public API.
+Do NOT scrape ea.com, it violates ToS and will break.
+
+SOLUTION - futdb.app
+---------------------
+Source                  Cost                Notes
+--------------------    ----------------    ----------------------------------
+futdb.app               Free tier           REST API, 15k+ players, full stats
+GitHub fc-player-data   Free open source    Community JSON dumps for FC 25/26
+Manual CSV              Full control        Fallback, create subset of 200 players
+
+IMPORT SCRIPT SPEC
+-------------------
+File: scripts/importPlayers.js
+
+- Fetch players from futdb.app API in pages of 50
+- Map API fields to your Player Mongoose schema
+- Use Player.bulkWrite() with upsert on futdbId to prevent duplicates
+- Run once: node scripts/importPlayers.js
+- Re-run annually when new FC ratings release
+
+PLAYER IMAGE STRATEGY
+----------------------
+Strategy            Detail
+----------------    ---------------------------------------------------
+futdb.app images    API provides direct image URLs, store in Player.image
+EAFC CDN            https://cdn.sofifa.net/players/{id}/25_60.png
+Fallback            Generate SVG avatar with player initials if 404
+Storage             Do NOT download images, just store the URL string
+
+================================================================================
+PART 5 - DATABASE SCHEMA
+================================================================================
+
+COLLECTION 1 - USERS
+----------------------
+_id              ObjectId, auto-generated
+name             String, required
+email            String, required, unique, lowercase
+password         String, required, bcrypt hashed
+role             Enum: admin | owner | guest
+teamId           ObjectId ref Teams, null until assigned
+avatar           String URL, optional
+isActive         Boolean, default true
+createdAt        Date, auto
+updatedAt        Date, auto
+
+COLLECTION 2 - TEAMS
+----------------------
+_id              ObjectId
+teamName         String, required, trim
+logo             String URL via Multer
+ownerId          ObjectId ref Users
+seasonId         ObjectId ref Seasons
+totalBudget      Number, default 1000
+remainingBudget  Number, default equals totalBudget
+players          Array of ObjectId ref Players
+squadSize        Number, default 0, auto-calculated
+teamValue        Number, sum of sale prices
+avgRating        Number, average OVR of squad
+color            String hex for UI theming
+createdAt        Date
+
+COLLECTION 3 - PLAYERS
+------------------------
+_id              ObjectId
+futdbId          Number, external ID, indexed for deduplication
+name             String, required, text indexed
+commonName       String, e.g. Mbappe
+image            String URL
+nation           String, e.g. France
+nationFlag       String URL
+club             String, e.g. Real Madrid
+clubLogo         String URL
+league           String, e.g. La Liga
+position         String, e.g. ST, CM, GK
+positionGroup    Enum: GK | DEF | MID | FWD
+rating           Number 1-99, indexed
+age              Number
+height           Number cm
+weight           Number kg
+preferredFoot    Enum: Right | Left
+weakFoot         Number 1-5
+skillMoves       Number 1-5
+pace             Number 1-99
+shooting         Number 1-99
+passing          Number 1-99
+dribbling        Number 1-99
+defending        Number 1-99
+physical         Number 1-99
+playStyles       Array of String
+status           Enum: available | pool | sold | unsold, default available
+auctionPoolOrder Number or null
+soldTo           ObjectId ref Teams, null until sold
+soldPrice        Number, null until sold
+soldAt           Date, null until sold
+basePrice        Number, default 10
+
+COLLECTION 4 - AUCTIONS
+-------------------------
+_id              ObjectId
+seasonId         ObjectId ref Seasons
+name             String, e.g. Main Auction 2025
+status           Enum: pending | active | paused | completed
+currentPlayerId  ObjectId ref Players, null if none
+currentBid       Number
+highestBidderId  ObjectId ref Teams, null if no bids
+timer            Number, seconds remaining
+timerDuration    Number, default 30
+pool             Array of ObjectId ref Players, ordered queue
+completedPlayers Array of ObjectId ref Players
+startedAt        Date or null
+completedAt      Date or null
+adminId          ObjectId ref Users
+teams            Array of ObjectId ref Teams
+minBidIncrement  Number, default 1
+createdAt        Date
+
+COLLECTION 5 - BIDHISTORY
+---------------------------
+_id              ObjectId
+auctionId        ObjectId, indexed
+playerId         ObjectId ref Players
+teamId           ObjectId ref Teams
+teamName         String, denormalized for fast display
+amount           Number
+timestamp        Date, indexed
+isWinningBid     Boolean, true only for final accepted bid
+
+COLLECTION 6 - SEASONS
+------------------------
+_id              ObjectId
+name             String, e.g. Season 1 November 2025
+status           Enum: setup | active | completed
+teams            Array of ObjectId ref Teams
+auctions         Array of ObjectId ref Auctions
+startDate        Date
+endDate          Date
+createdBy        ObjectId ref Users
+settings         Object with defaultBudget, timerDuration, minBid
+createdAt        Date
+
+COLLECTION 7 - WATCHLISTS
+---------------------------
+_id              ObjectId
+ownerId          ObjectId ref Users
+seasonId         ObjectId ref Seasons
+players          Array of ObjectId ref Players
+updatedAt        Date
+
+REQUIRED MONGODB INDEXES
+--------------------------
+Players     text index on name and commonName fields
+Players     index on rating descending
+Players     index on status
+Players     compound index on position ascending, rating descending
+BidHistory  index on auctionId ascending, timestamp descending
+Users       unique index on email
+
+================================================================================
+PART 6 - FOLDER STRUCTURE
+================================================================================
+
+fc26-auction/
+    frontend/
+        src/
+            app/
+                (auth)/
+                    login/page.tsx
+                    register/page.tsx
+                (admin)/
+                    dashboard/page.tsx
+                    players/page.tsx
+                    players/[id]/page.tsx
+                    teams/page.tsx
+                    teams/[id]/page.tsx
+                    auction-pool/page.tsx
+                    auction/[id]/page.tsx
+                    auction/[id]/controls/page.tsx
+                    statistics/page.tsx
+                    history/page.tsx
+                    export/page.tsx
+                (owner)/
+                    dashboard/page.tsx
+                    players/page.tsx
+                    watchlist/page.tsx
+                    auction/[id]/page.tsx
+                    squad/page.tsx
+                (guest)/
+                    page.tsx
+                layout.tsx
+                page.tsx
+            components/
+                ui/                         shadcn/ui base components
+                players/
+                    PlayerCard.tsx
+                    PlayerDetail.tsx
+                    PlayerGrid.tsx
+                    PlayerFilters.tsx
+                auction/
+                    LiveAuctionCard.tsx
+                    BidHistory.tsx
+                    AuctionTimer.tsx
+                    BidButtons.tsx
+                teams/
+                    TeamCard.tsx
+                    TeamBudget.tsx
+                    SquadGrid.tsx
+                admin/
+                    AdminControls.tsx
+                    AuctionPoolList.tsx
+                layout/
+                    Sidebar.tsx
+                    TopNav.tsx
+                    MobileNav.tsx
+            lib/
+                api.ts                      Axios instance with JWT interceptor
+                socket.ts                   Socket.IO client singleton
+                auth.ts                     JWT decode helpers
+                utils.ts                    Formatting, currency, position helpers
+            hooks/
+                useAuction.ts               Socket.IO auction state hook
+                usePlayers.ts               Player search and filter hook
+                useTeams.ts                 Team data hook
+            store/
+                auctionStore.ts             Zustand auction state
+                userStore.ts                Zustand auth state
+            types/
+                player.types.ts
+                auction.types.ts
+                team.types.ts
+
+    backend/
+        src/
+            server.ts                       Express entry point
+            socket.ts                       Socket.IO setup and event handlers
+            routes/
+                auth.routes.ts
+                player.routes.ts
+                team.routes.ts
+                auction.routes.ts
+                season.routes.ts
+                export.routes.ts
+            controllers/                    Route handler logic
+            models/                         Mongoose schemas
+            middleware/
+                auth.middleware.ts
+                role.middleware.ts
+                error.middleware.ts
+            services/
+                auction.service.ts          Bid validation, state machine
+                player.service.ts           Search, filter, import
+                budget.service.ts           Atomic budget operations
+
+    scripts/
+        importPlayers.js
+        createAdmin.js
+
+================================================================================
+PART 7 - AUTHENTICATION MODULE
+================================================================================
+
+JWT FLOW
+---------
+1. User submits email and password to POST /api/auth/login
+2. Server validates, returns JWT token (expires 7 days)
+3. Frontend stores token in localStorage under key fc26_token
+4. All API requests include: Authorization: Bearer TOKEN
+5. Socket.IO connection includes token in auth handshake: { token }
+6. Server middleware decodes token, attaches req.user to every request
+
+ROLE-BASED ROUTE PROTECTION
+-----------------------------
+Public routes       /login, /register, /guest, no token required
+Owner routes        Token required + role must be owner or admin
+Admin routes        Token required + role must be admin only
+Socket connection   Token validated on connect, role determines allowed events
+
+NEXT.JS MIDDLEWARE
+-------------------
+Create frontend/src/middleware.ts
+Reads JWT from cookies, checks role, redirects unauthenticated to /login.
+
+LOGIN PAGE RULES
+-----------------
+- Single login form for all roles, role determined by JWT payload
+- On success: redirect to /dashboard (role-specific routing via middleware)
+- Show error toast on invalid credentials
+- Do not reveal whether email or password is wrong
+- Auto-redirect if already logged in
+
+================================================================================
+PART 8 - PLAYER DATABASE MODULE
+================================================================================
+
+This is the most important module.
+Must feel like browsing the EA FC Ratings website.
+
+SEARCH
+-------
+- Debounced text search, 300ms delay, MongoDB text index on name and commonName
+- Search bar always visible at top
+- Results update in real-time as user types
+- Clear button resets search without losing filters
+
+FILTER PANEL
+-------------
+Filter          UI Component
+-----------     -------------------------------------------------
+Position        Multi-select buttons: GK / DEF / MID / FWD + sub-positions
+Rating          Dual range slider: 0-99, default shows 70-99
+Nation          Searchable dropdown from DB distinct values
+Club            Searchable dropdown from DB distinct values
+League          Searchable dropdown from DB distinct values
+PlayStyles      Multi-select chips
+Status          Radio: All / Available / In Pool / Sold / Unsold
+
+SORTING
+--------
+- Overall Rating (default, descending)
+- Pace, Shooting, Passing, Dribbling, Defending, Physical
+- Name A-Z
+- Direction toggle ascending/descending
+
+PLAYER CARD COMPONENT
+----------------------
+Each card displays:
+- Player photo (top center, circle crop with position-color ring)
+- Overall rating (large, top left)
+- Position abbreviation (below rating)
+- Player name (below photo)
+- Club logo (small, bottom left)
+- Nation flag (small, bottom right)
+- Status badge: Available=green, In Pool=amber, Sold=red with team name
+- Hover: expand slightly, show quick-action buttons
+
+QUICK ACTIONS
+--------------
+Action              Visible To      Behavior
+-----------------   -----------     ------------------------------------------
+Add to Pool         Admin only      Adds player to auction pool, status = pool
+Add to Watchlist    Owners          Saves to watchlist
+View Details        Everyone        Opens player detail modal
+Remove from Pool    Admin only      Shown if player already in pool
+
+PLAYER DETAIL MODAL
+--------------------
+- Opens as full-screen overlay, keeps search context intact
+- Two-column: left photo + identity, right stats
+- Stat bars: Pace, Shooting, Passing, Dribbling, Defending, Physical
+- Color coding: 75+ green, 60-74 amber, below 60 red
+- Personal info: Age, Height, Weight, Preferred Foot, Weak Foot stars, Skill Moves stars
+- PlayStyles as icon chips
+- If sold: shows team name, logo, and sale price
+- Action buttons fixed at bottom
+
+PAGINATION
+-----------
+- 24 players per page, 4 columns x 6 rows on desktop
+- Infinite scroll
+- Skeleton loader cards while fetching
+- React Query cache, 5 minute stale time
+
+API ENDPOINT
+-------------
+GET /api/players
+Query params:
+  search=mbappe
+  position=ST
+  ratingMin=85
+  ratingMax=99
+  nation=France
+  club=Real+Madrid
+  league=La+Liga
+  status=available
+  sortBy=rating
+  sortOrder=desc
+  page=1
+  limit=24
+
+Response: { players: [], total: 0, page: 1, totalPages: 0 }
+
+================================================================================
+PART 9 - TEAM MANAGEMENT MODULE
+================================================================================
+
+CREATE TEAM FLOW
+-----------------
+1. Admin goes to /admin/teams, clicks Create Team button, opens drawer
+2. Fill: Team Name, Owner (dropdown), Budget, Logo (upload), Team Color
+3. Save, team created, owner account linked
+4. Team appears in teams grid with budget indicator
+
+TEAM CARD SHOWS
+----------------
+- Team logo and name
+- Owner name
+- Budget bar: remaining/total (green to amber to red)
+- Player count badge
+- Average OVR badge
+
+TEAM DETAIL PAGE
+-----------------
+- Header: logo, name, owner, color accent
+- Budget: 3 metric cards (total / spent / remaining)
+- Player roster table: photo, name, position, rating, sale price, date bought
+- Squad stats: average rating, best player, most expensive signing
+
+BUDGET RULES
+-------------
+- Remaining budget updates atomically on each successful bid
+- Owner cannot bid more than remaining budget, enforced server-side
+- Admin can manually override budget from team detail page
+- Budget = 0 means team cannot bid, system enforced not honor system
+
+================================================================================
+PART 10 - AUCTION POOL MODULE
+================================================================================
+
+FEATURES
+---------
+- Search and add players directly from player database
+- Pool is an ordered vertical list with drag-and-drop using @dnd-kit/core
+- Each entry shows: order number, position badge, player thumbnail, name, rating, remove button
+- Remove player returns status to available
+- Bulk add: filter by position/rating, select all, add to pool
+- Pool counter badge in nav shows live count
+
+PLAYER STATUS IN POOL
+----------------------
+Status          Meaning
+-----------     --------------------------------------------------
+available       Not in pool, can be added
+pool            In queue, shows order number
+sold            Locked, cannot re-add without undo
+unsold          Admin can re-add for re-auction
+
+API ENDPOINTS
+--------------
+POST    /api/auction-pool/add               { playerId }
+DELETE  /api/auction-pool/:id
+PATCH   /api/auction-pool/reorder           { orderedIds: [] }
+GET     /api/auction-pool
+
+================================================================================
+PART 11 - LIVE AUCTION AND SOCKET.IO ARCHITECTURE
+================================================================================
+
+IMPORTANT: Read this entire section before writing any Socket.IO code.
+
+AUCTION STATE MACHINE
+----------------------
+
+pending --> active --> (per player: bidding --> sold or unsold) --> completed
+                 |
+              paused
+
+State           Meaning                             Transition
+-----------     --------------------------------    ---------------------------
+pending         Created, not started                Admin clicks Start = active
+active          Player on block, timer running      Timer expires = sell/unsold
+paused          Admin paused                        Admin resumes = active
+completed       All pool players done               Terminal, no transitions out
+
+SOCKET.IO ROOM ARCHITECTURE
+-----------------------------
+Room name           auction:AUCTION_ID
+Who joins           Everyone, admin, owners, guests
+Admin extra         Also joins admin:AUCTION_ID
+Private events      Budget updates sent to team:TEAM_ID
+Broadcast events    Bids sent to entire auction room
+
+CLIENT TO SERVER EVENTS (What Clients EMIT)
+--------------------------------------------
+Event               Payload                                 Permission
+----------------    ------------------------------------    ----------------
+join_auction        { auctionId, token }                    Everyone
+place_bid           { auctionId, amount, teamId, token }    Owners only
+admin:start         { auctionId }                           Admin only
+admin:pause         { auctionId }                           Admin only
+admin:resume        { auctionId }                           Admin only
+admin:skip          { auctionId }                           Admin only
+admin:unsold        { auctionId }                           Admin only
+admin:undo          { auctionId }                           Admin only
+admin:next_player   { auctionId }                           Admin only
+
+SERVER TO CLIENT EVENTS (What Server EMITS)
+--------------------------------------------
+Event               Payload
+----------------    -------------------------------------------------------
+auction:state       Full auction state on join or change
+bid:new             { amount, teamName, teamId, timestamp }
+bid:winning         { amount, teamName }
+timer:tick          { seconds } emitted every second
+timer:warning       { seconds: 5 } at 5 seconds remaining
+player:sold         { player, team, price }
+player:unsold       { player }
+player:next         { player }
+auction:paused      {}
+auction:resumed     {}
+auction:completed   { summary }
+budget:updated      { teamId, remaining } private to team room only
+error               { message, code } only to bidder
+
+BID VALIDATION - 10 STEPS (Server-Side, ALL REQUIRED)
+-------------------------------------------------------
+1.  Check auction.status equals active
+2.  Check playerId matches auction.currentPlayerId
+3.  Check amount > auction.currentBid + auction.minBidIncrement
+4.  Check team.remainingBudget >= amount
+5.  Check team is part of this auction
+6.  Check bidder is not current highest bidder (no self-overbid)
+7.  findOneAndUpdate Auction with conditional { currentBid: { $lt: amount } }
+8.  If update returns null, bid lost race condition, emit error to bidder only
+9.  Reset timer to timerDuration
+10. Emit bid:new to all room participants
+
+IMPORTANT: ALL bid validation happens on the server. Never trust client amounts.
+
+RACE CONDITION PROTECTION
+--------------------------
+Use MongoDB conditional findOneAndUpdate:
+
+  const updated = await Auction.findOneAndUpdate(
+    { _id: auctionId, currentBid: { $lt: newBidAmount } },
+    { $set: { currentBid: newBidAmount, highestBidderId: teamId } },
+    { new: true }
+  );
+
+  if (!updated) {
+    socket.emit('error', { message: 'Bid was outpaced', code: 'BID_RACE_LOST' });
+    return;
+  }
+
+Do NOT use separate read-then-write, that creates a race condition.
+
+TIMER ARCHITECTURE
+-------------------
+- Timer runs on the SERVER, not the client
+- Server uses setInterval stored in Map<auctionId, NodeJS.Timeout>
+- Every second: emit timer:tick to room
+- On bid received: clearInterval, restart timer, emit new tick
+- Timer hits 0 with currentBid > 0: trigger sell logic
+- Timer hits 0 with currentBid = 0: auto mark unsold
+- Always clearInterval on: pause, sell, skip, unsold, complete
+
+PLAYER SOLD LOGIC (Server, Step by Step)
+-----------------------------------------
+1. clearInterval for this auction
+2. Player.findOneAndUpdate: status=sold, soldTo, soldPrice, soldAt=now
+3. Team.findOneAndUpdate:
+     $inc remainingBudget by -soldPrice
+     $inc squadSize by +1
+     $inc teamValue by +soldPrice
+     $push players: playerId
+4. Create BidHistory entry with isWinningBid: true
+5. Emit player:sold to entire auction room
+6. Emit budget:updated to team:TEAM_ID private room
+7. Move to next player in pool or emit auction:completed
+
+UNDO LAST SALE (Server, Step by Step)
+---------------------------------------
+1. Find most recent sold player in this auction
+2. Player: status=pool, soldTo=null, soldPrice=null, soldAt=null
+3. Team: $inc remainingBudget by +soldPrice
+         $inc squadSize by -1
+         $inc teamValue by -soldPrice
+         $pull players: playerId
+4. Delete all BidHistory entries for that player in this auction
+5. Put player back at front of auction queue
+6. Emit auction:state to all, everyone sees the reversal
+
+NOTE: Only the most recent sale can be undone. Cannot skip backwards.
+
+SOCKET.IO SERVER SETUP
+------------------------
+backend/src/socket.ts
+
+  const io = new Server(httpServer, {
+    cors: { origin: process.env.FRONTEND_URL, credentials: true }
+  });
+
+  // Middleware, validate JWT on every connection
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error('Authentication error'));
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      socket.data.userId = decoded.id;
+      socket.data.role = decoded.role;
+      socket.data.teamId = decoded.teamId;
+      next();
+    } catch {
+      next(new Error('Invalid token'));
+    }
+  });
+
+  io.on('connection', (socket) => {
+    socket.on('join_auction', ({ auctionId }) => {
+      socket.join('auction:' + auctionId);
+      if (socket.data.role === 'admin') socket.join('admin:' + auctionId);
+      if (socket.data.teamId) socket.join('team:' + socket.data.teamId);
+    });
+  });
+
+================================================================================
+PART 12 - AUCTION CONTROLS MODULE
+================================================================================
+
+CONTROL BUTTONS
+----------------
+Control             Behavior
+-----------------   ----------------------------------------------------------
+Start Auction       Begins auction, emits first player:next, starts timer
+Pause               Freezes timer, owners cannot bid
+Resume              Continues timer from where it paused
+Skip Player         Marks unsold, moves to next, no timer wait
+Mark Unsold         Same as Skip
+Re-auction          Takes unsold player, puts back at front of queue
+Undo Last Sale      Reverses most recent sale, see Part 11
+End Auction         Force-completes auction
+
+DESIGN RULES
+-------------
+- Always visible to admin, fixed panel not behind a menu
+- Grouped: Active (Start/Pause/Resume) | Player (Skip/Unsold/Reauction) | Emergency (Undo/End)
+- Confirmation dialog for Undo and End Auction
+- Pause toggles to Resume button
+- Disabled state for context-inappropriate actions
+
+================================================================================
+PART 13 - SOLD PLAYER AND BUDGET MANAGEMENT
+================================================================================
+
+All budget deductions and player assignments happen automatically on the server
+the moment a player is sold. No admin action needed.
+
+WHAT HAPPENS AUTOMATICALLY ON SALE
+------------------------------------
+1.  Player.status           = sold
+2.  Player.soldTo           = winning team ID
+3.  Player.soldPrice        = winning bid amount
+4.  Player.soldAt           = current timestamp
+5.  Team.remainingBudget    -= soldPrice (atomic)
+6.  Team.players            push playerId
+7.  Team.squadSize          += 1
+8.  Team.teamValue          += soldPrice
+9.  Team.avgRating          recalculated
+10. BidHistory entry        created for winning bid
+11. Emit player:sold        to all in auction room
+12. Emit budget:updated     to team:TEAM_ID private room
+
+SOLD PLAYER FEED
+-----------------
+Scrollable feed below auction stage showing all sold players, most recent first.
+Each entry shows: photo, name, rating, position, buying team, sale price.
+
+BUDGET DISPLAY RULES
+---------------------
+- Top of owner screen: persistent budget bar, Spent / Remaining / Total
+- Updates real-time via budget:updated socket event
+- Warning when remaining less than 20% of total (amber color)
+- Critical when remaining less than 100 (red flash animation)
+
+================================================================================
+PART 14 - WATCHLIST MODULE
+================================================================================
+
+- Owner adds player from Player Database via Add to Watchlist button
+- Watchlist page at /owner/watchlist shows all saved players as cards
+- During auction: Watching indicator when watched player comes up
+- Notification badge on nav when watched player is next in queue
+- Remove at any time
+- Per-owner, per-season, resets for new season
+
+================================================================================
+PART 15 - STATISTICS AND HISTORY MODULE
+================================================================================
+
+STATISTICS CARDS
+-----------------
+Statistic                   Definition
+------------------------    ---------------------------------------------------
+Most Expensive Player       Player with highest sale price
+Best Value Signing          Highest rating divided by price ratio
+Top Spending Team           Team that spent the most total
+Best Squad Rating           Highest average OVR
+Highest Remaining Budget    Most budget saved
+Total Pot Spent             Sum of all sale prices
+Unsold Players              Count and list
+Average Sale Price          Mean price per player
+
+LEADERBOARDS
+-------------
+- Teams ranked by: Squad Value, Avg Rating, Budget Remaining, Players Bought
+- Top 10 most expensive players
+- Position-wise spending breakdown (FWD vs MID vs DEF vs GK)
+
+SEASON HISTORY
+---------------
+- List of all past seasons
+- Click to view full results: teams, players, prices
+- Never deleted, stored permanently in MongoDB
+
+================================================================================
+PART 16 - EXPORT MODULE
+================================================================================
+
+Export Type             Library             Content
+--------------------    ----------------    ------------------------------------
+PDF Auction Summary     jsPDF + autotable   One page per team, standings table
+CSV All Sales           json2csv            player, team, price, timestamp rows
+CSV Team Squads         json2csv            Grouped by team with budget summary
+JSON Full Dump          JSON.stringify      Complete auction data
+
+EXPORT API ENDPOINTS
+---------------------
+GET /api/export/pdf/:auctionId
+GET /api/export/csv/:auctionId
+GET /api/export/squads/:auctionId
+GET /api/export/json/:auctionId
+
+================================================================================
+PART 17 - COMPLETE API REFERENCE
+================================================================================
+
+AUTHENTICATION ENDPOINTS
+--------------------------
+Method  Path                    Auth            Description
+------  --------------------    -------------   -----------------------
+POST    /api/auth/register      Public          Create account
+POST    /api/auth/login         Public          Returns JWT token
+GET     /api/auth/me            Auth required   Current user profile
+POST    /api/auth/logout        Auth required   Invalidate token
+
+PLAYER ENDPOINTS
+-----------------
+Method  Path                        Auth    Description
+------  --------------------------  ------  ----------------------------------
+GET     /api/players                Public  Search + filter + paginate
+GET     /api/players/:id            Public  Single player full detail
+GET     /api/players/filters        Public  Distinct values for dropdowns
+POST    /api/players/import         Admin   Trigger re-import from futdb
+PATCH   /api/players/:id/pool       Admin   Add or remove from pool
+
+TEAM ENDPOINTS
+---------------
+Method  Path                        Auth    Description
+------  --------------------------  ------  ----------------------------------
+GET     /api/teams                  Auth    All teams for current season
+POST    /api/teams                  Admin   Create team
+GET     /api/teams/:id              Auth    Single team with squad
+PATCH   /api/teams/:id              Admin   Update name/budget/logo
+DELETE  /api/teams/:id              Admin   Delete if no players
+PATCH   /api/teams/:id/budget       Admin   Manual budget override
+
+AUCTION ENDPOINTS
+------------------
+Method  Path                            Auth    Description
+------  ------------------------------  ------  ----------------------------
+POST    /api/auctions                   Admin   Create auction
+GET     /api/auctions                   Auth    List auctions for season
+GET     /api/auctions/:id               Auth    Auction detail + state
+GET     /api/auctions/:id/history       Auth    Bid history
+GET     /api/auctions/:id/sold          Auth    Sold players list
+PATCH   /api/auctions/:id/status        Admin   Update status
+
+AUCTION POOL ENDPOINTS
+-----------------------
+Method  Path                            Auth    Description
+------  ------------------------------  ------  ----------------------------
+GET     /api/auction-pool               Auth    Get ordered pool
+POST    /api/auction-pool/add           Admin   Add player
+DELETE  /api/auction-pool/:playerId     Admin   Remove player
+PATCH   /api/auction-pool/reorder       Admin   Save drag-drop order
+POST    /api/auction-pool/bulk-add      Admin   Add multiple at once
+
+SEASON ENDPOINTS
+-----------------
+Method  Path                    Auth    Description
+------  --------------------    ------  ----------------------------
+GET     /api/seasons            Auth    List all seasons
+POST    /api/seasons            Admin   Create season
+GET     /api/seasons/:id        Auth    Season detail
+PATCH   /api/seasons/:id        Admin   Update season
+
+STATISTICS ENDPOINTS
+---------------------
+Method  Path                            Auth    Description
+------  ------------------------------  ------  ----------------------------
+GET     /api/stats/:auctionId           Auth    All stats
+GET     /api/stats/:auctionId/teams     Auth    Team rankings
+GET     /api/stats/:auctionId/players   Auth    Top players by price
+GET     /api/stats/:auctionId/summary   Auth    Quick summary cards
+
+WATCHLIST ENDPOINTS
+--------------------
+Method  Path                        Auth    Description
+------  --------------------------  ------  ----------------------------
+GET     /api/watchlist              Owner   Get my watchlist
+POST    /api/watchlist/add          Owner   Add player
+DELETE  /api/watchlist/:playerId    Owner   Remove player
+
+================================================================================
+PART 18 - UI UX DESIGN SYSTEM
+================================================================================
+
+COLOR PALETTE
+--------------
+Element             Hex         Usage
+-----------------   ---------   -----------------------------------------------
+Background          #0A0A0A     Page background, deep void
+Surface             #141414     Cards, panels, sidebar
+Surface Elevated    #1C1B1B     Dropdowns, modals, tooltips
+Border              #2A2A2A     Card borders, dividers
+Text Primary        #FFFFFF     Headings, important numbers
+Text Secondary      #A1A1A1     Labels, metadata, captions
+Text Muted          #555555     Disabled, placeholder
+Accent Red          #EF4444     Timer warning, sold badge, errors
+Accent Green        #22C55E     Available, winning bid, success
+Accent Amber        #F59E0B     In pool, budget warning, attention
+Accent Blue         #3B82F6     Active bid highlight, links
+GK Position         #F59E0B     Goalkeeper card color
+DEF Position        #3B82F6     Defender card color
+MID Position        #22C55E     Midfielder card color
+FWD Position        #EF4444     Forward card color
+
+TAILWIND CONFIG CUSTOM COLORS
+-------------------------------
+Add to tailwind.config.ts colors section:
+
+  background: '#0A0A0A'
+  surface: '#141414'
+  surface-elevated: '#1C1B1B'
+  border: '#2A2A2A'
+  text-primary: '#FFFFFF'
+  text-secondary: '#A1A1A1'
+  text-muted: '#555555'
+  accent-red: '#EF4444'
+  accent-green: '#22C55E'
+  accent-amber: '#F59E0B'
+  accent-blue: '#3B82F6'
+
+TYPOGRAPHY
+-----------
+Role                Font                Weight      Size
+-----------------   ----------------    --------    --------
+Display / Hero      Plus Jakarta Sans   700-800     48px+
+Section Headings    Plus Jakarta Sans   600         24-32px
+Card Headings       Plus Jakarta Sans   600         18-20px
+Body Text           Inter               400-500     14-16px
+UI Labels           Inter               500-600     12-13px
+Stats Numbers       Inter               700-800     20-36px
+
+SPACING AND LAYOUT
+-------------------
+Element                     Value
+-----------------------     ----------------------------
+Sidebar width               260px desktop, hidden mobile
+Content max-width           1440px
+Card grid                   4 col desktop, 3 tablet, 2 mobile, 1 small
+Card gap                    16px
+Border radius cards         12px
+Border radius buttons       8px
+Border radius badges        9999px
+Shadow                      None, depth via borders only
+
+PLAYER CARD SPEC
+-----------------
+Width:          180px standard, 140px pool list, 220px detail grid
+Aspect ratio:   3:4 portrait
+Background:     gradient from position-color at 20% opacity to #141414
+Border:         1px solid position-color at 30% opacity
+Rating:         top-left, 32px, bold, white
+Position:       below rating, 11px, uppercase, position color
+Photo:          centered, 80px circle
+Name:           bottom center, 13px, white, max 2 lines
+Club + Nation:  16px icons, bottom row
+Hover:          scale 1.04, border opacity 100%, 200ms ease
+
+AUCTION TIMER SPEC
+-------------------
+Shape:          Circular SVG progress ring, 120px diameter
+Number:         seconds remaining, 36px bold, inside ring
+Colors:
+  More than 15s   = green  #22C55E
+  6 to 15s        = amber  #F59E0B
+  Less than 6s    = red    #EF4444 with pulse animation
+At 5s:          ring pulses + number flashes
+
+BID BUTTONS SPEC
+-----------------
+Buttons:        +1, +2, +5, +10, four large pills, min 48px height
+Color:          Green when bid will succeed, Grey when insufficient budget
+Pass:           Ghost style, smaller, right-aligned
+Disabled:       During Pause state
+After bid:      Brief animation + Bid Placed feedback text
+
+ANIMATION GUIDELINES
+---------------------
+Page transitions:       fade + 8px up slide, 200ms
+Card hover:             scale 1.04, 150ms ease-out
+New bid in history:     slide in from right, 300ms
+Player sold:            confetti burst with canvas-confetti + card flip
+Timer warning:          shake animation at 5 seconds
+Budget deduction:       count-down number animation with react-countup
+
+================================================================================
+PART 19 - EVERY PAGE LAYOUT AND COMPONENTS
+================================================================================
+
+PAGE 1 - LOGIN (/login)
+------------------------
+Layout:     Full-screen dark background, centered card 440px wide
+Card:       Glass effect rgba white 3%, 1px border
+Content:    FC 26 Auction logo + Private Platform subtitle
+Form:       Email input, Password input with show/hide toggle
+Button:     Sign In, full width, white background, black text
+States:     Loading (spinner + disabled), Error (red border + message below)
+
+PAGE 2 - ADMIN DASHBOARD (/admin/dashboard)
+--------------------------------------------
+Layout:     Fixed sidebar 260px + scrollable main content
+
+Sidebar:
+  Top: FC 26 Auction logo + season selector dropdown
+  Nav links with icons:
+    Dashboard, Players, Teams, Auction Pool,
+    Live Auction, Statistics, History, Export
+  Active link: white text + left accent border
+  Bottom: user avatar, name, role badge, logout button
+
+Main content Row 1 - 5 stat cards:
+  Total Teams
+  Players in Pool
+  Sold Players
+  Unsold Players
+  Budget Summary
+
+Main content Row 2:
+  Auction pool preview: first 5 players horizontal scroll
+  Quick Start button if auction is pending
+  Teams budget grid: all teams as small cards with budget bars
+  Recent activity feed: last 10 bids and sales
+
+PAGE 3 - PLAYER DATABASE (/admin/players or /owner/players)
+------------------------------------------------------------
+Layout:     Full-width, top navigation (no sidebar to maximize space)
+
+Top bar sticky:
+  Search input full width center, large
+  Placeholder: Search Mbappe, Haaland, Real Madrid...
+  Active filter chips below search as removable chips
+  Sort dropdown right side
+  View toggle: Grid or List
+
+Left filter panel collapsible 280px:
+  Position buttons: GK / DEF / MID / FWD
+  Rating range slider
+  Nation searchable select
+  Club searchable select
+  League searchable select
+  Status radio group
+  Reset Filters button
+
+Main grid:
+  4 columns desktop, 3 tablet, 2 mobile
+  Player cards with hover states
+  Skeleton loaders on initial load
+  Empty state: illustrated empty field, No players found, clear filters button
+
+Player Detail Modal:
+  Two-column: left photo + identity, right stats
+  Stat bars animate on open
+  Action buttons fixed at bottom
+  Close on Escape key or clicking outside
+
+PAGE 4 - TEAM MANAGEMENT (/admin/teams)
+----------------------------------------
+Layout: Sidebar + main content
+
+Main:
+  Create Team button top right, opens right drawer
+  Teams grid 3 columns
+
+Team Card shows:
+  Logo, name, owner, budget bar, player count, avg rating
+
+Create Team Drawer fields:
+  Team Name input
+  Owner selector dropdown of registered owner accounts
+  Starting Budget number input
+  Team Color: 8 preset colors + custom picker
+  Team Logo: drag-drop image upload with preview
+  Save and Cancel buttons
+
+Team Detail Page (/admin/teams/:id):
+  Hero section: large team logo, team name, owner, color accent
+  Budget: 3 metric cards (total / spent / remaining)
+  Player roster table: photo, name, position, rating, sale price, date bought
+
+PAGE 5 - AUCTION POOL (/admin/auction-pool)
+--------------------------------------------
+Layout: Split, left search 60%, right pool list 40%
+
+Left panel - Player Search:
+  Compact search and filter
+  Add to Pool one-click button per card
+  In Pool badge and disabled button if already added
+
+Right panel - Pool Queue:
+  Ordered list with drag handle icons
+  Columns: order number, position, player mini-card, name, rating, remove
+  Drag to reorder, auto-saves on drop
+  Counter: 24 players in pool
+  Start Auction button at bottom, disabled if pool empty
+
+PAGE 6 - LIVE AUCTION ADMIN VIEW (/admin/auction/:id)
+------------------------------------------------------
+Layout: Three-panel
+
+Left panel 280px - Controls + Queue:
+  Admin control buttons
+  Next 5 players mini-list with position and name
+  Sold feed scrollable list below
+
+Center flexible - Main Auction Stage:
+  Current player large card, 320x420px, animated entrance
+  Circular countdown timer, prominent at top
+  Current bid, large animated number
+  Highest bidder team name and logo
+  Bid history: last 5 bids as live scrolling list
+
+Right panel 280px - Teams Budget:
+  All teams with remaining budget
+  Sorted by remaining budget descending
+  Current highest bidder highlighted in blue
+  Zero-budget teams greyed out
+
+PAGE 7 - LIVE AUCTION OWNER VIEW (/owner/auction/:id)
+------------------------------------------------------
+Layout: Simplified, optimized for bidding
+
+Top bar:
+  My budget: remaining / total, always visible, prominent
+  My team name and logo
+
+Main:
+  Current player card
+  Countdown timer, large and clear
+  Current bid and highest bidder name
+
+Bottom fixed:
+  Bid buttons: +1 / +2 / +5 / +10, large, easy to tap
+  Current bid amount shown above buttons
+  Pass button
+  Disabled if: paused, insufficient budget, you are highest bidder
+
+PAGE 8 - OWNER DASHBOARD (/owner/dashboard)
+--------------------------------------------
+  Budget card: remaining / total, prominent visual
+  My Squad: bought players as card grid
+  Upcoming players: next in auction queue
+  Watchlist preview: first 5 watched players
+  Join Auction quick link button
+
+PAGE 9 - STATISTICS (/admin/statistics)
+----------------------------------------
+  Stat cards: most expensive, best value, top spender, best squad
+  Team leaderboard table: rank, team, players, spend, avg rating, budget left
+  Top 10 sold players table
+  Position spending bar chart using recharts
+  Budget comparison bar chart using recharts
+
+PAGE 10 - EXPORT (/admin/export)
+----------------------------------
+  4 export buttons with icons and descriptions
+  Each triggers download via API endpoint
+  Loading spinner per button while generating
+  Success toast on download start
+
+PAGE 11 - WATCHLIST (/owner/watchlist)
+----------------------------------------
+  Grid of watched player cards
+  Status badge per card: Available / In Pool / Sold / Unsold
+  Remove button per card
+  Is up next badge if player is next in queue during live auction
+
+PAGE 12 - GUEST WATCH PAGE (/)
+--------------------------------
+  Read-only, no login required
+  Current player being auctioned
+  Current bid and bidder
+  Timer
+  Sold player feed
+  NO team budgets shown (privacy)
+  Ask admin for an account prompt
+
+PAGE 13 - SEASON HISTORY (/admin/history)
+------------------------------------------
+  Seasons list: name, date, teams count, sold count, total spend, status
+  Click season to view full results: teams, players, prices, read only
+
+================================================================================
+PART 20 - MOBILE BIDDING SCREEN
+================================================================================
+
+IMPORTANT: 80% of owners will bid on phones. This is the most critical mobile UI.
+
+LAYOUT (768px and below) - Single column full-screen
+------------------------------------------------------
+Status bar:     My budget remaining top left, auction status top right
+Player card:    280px centered, all info visible without scrolling
+Timer:          Large circular ring, 100px diameter
+Current bid:    40px number below timer
+Highest bidder: Team name chip below bid
+Bid grid:       2x2 grid, minimum 56px height each, 16px gap
+                [+1]   [+2]
+                [+5]   [+10]
+Pass button:    Full-width below grid, ghost style
+
+MOBILE-SPECIFIC RULES
+----------------------
+- No hover states, use active/pressed states instead
+- Minimum touch target: 44x44px for all interactive elements
+- Bid confirmation: navigator.vibrate([100]) on bid placed
+- Swipe up to see bid history panel
+- Swipe down to see sold players feed
+- Add PWA manifest for Add to Home Screen
+- Disable bid button for 1 second after click to prevent double-tap
+
+================================================================================
+PART 21 - MVP ROADMAP AND FEATURE FLAGS
+================================================================================
+
+MVP DEFINITION - Ship After Phase 3
+-------------------------------------
+Feature                             Phase       Priority
+----------------------------------  ---------   -----------
+Player import and database          Phase 1     Must Have
+Login for all 3 roles               Phase 1     Must Have
+Team creation and budget            Phase 2     Must Have
+Auction pool builder                Phase 2     Must Have
+Live auction with real-time bids    Phase 3     Must Have
+Timer and automatic sell            Phase 3     Must Have
+Budget deduction                    Phase 3     Must Have
+Admin controls                      Phase 3     Must Have
+Watchlist                           Phase 4     Nice to Have
+Statistics                          Phase 4     Nice to Have
+Export PDF and CSV                  Phase 4     Nice to Have
+Formation builder drag-drop         Phase 5     Defer
+Transfer market                     Phase 5     Defer
+Season comparison                   Phase 5     Defer
+
+FEATURE FLAGS - Add to .env
+-----------------------------
+FEATURE_WATCHLIST=true
+FEATURE_EXPORT=true
+FEATURE_STATISTICS=true
+FEATURE_TRANSFER_MARKET=false
+FEATURE_FORMATION_BUILDER=false
+
+================================================================================
+PART 22 - PROMPTS FOR AI CODE EDITORS
+================================================================================
+
+Use these in Cursor / Windsurf / Claude Code in this exact sequence.
+
+PROMPT 1 - PROJECT SCAFFOLD
+-----------------------------
+Create a Next.js 15 App Router project with TypeScript, Tailwind CSS v3,
+and shadcn/ui. Set up the folder structure from Part 6 of this document.
+
+Install these packages:
+framer-motion, lucide-react, zustand, @tanstack/react-query,
+axios, socket.io-client, react-countup, canvas-confetti, @dnd-kit/core
+
+Configure tailwind.config.ts with custom colors from Part 18.
+Background: #0A0A0A, Surface: #141414.
+Add Plus Jakarta Sans and Inter via next/font/google.
+
+PROMPT 2 - EXPRESS BACKEND
+----------------------------
+Create an Express.js TypeScript backend in /backend.
+
+Setup:
+- MongoDB connection with Mongoose
+- JWT middleware using jsonwebtoken
+- CORS for localhost:3000
+- Health check route at GET /api/health returning { status: ok }
+
+Create Mongoose models for:
+Users, Players, Teams, Auctions, BidHistory, Seasons, Watchlists
+Use the exact schemas from Part 5 of this document.
+
+Add all MongoDB indexes listed in Part 5.
+
+Create Express route files for:
+auth, players, teams, auctions, auction-pool, seasons, stats, watchlist, export
+
+Server runs on port 4000.
+
+PROMPT 3 - PLAYER IMPORT SCRIPT
+---------------------------------
+Create scripts/importPlayers.js that:
+1. Fetches FC player data from futdb.app API using FUTDB_API_KEY from .env
+2. Fetches in pages of 50
+3. Maps API fields to Player Mongoose schema from Part 5
+4. Uses Player.bulkWrite() with upsert on futdbId field
+5. Logs progress every 100 players
+6. Handles errors with retry logic for failed pages
+
+PROMPT 4 - PLAYER DATABASE PAGE
+---------------------------------
+Build the Player Database page at /admin/players using the layout from
+Part 19 Page 3.
+
+Create PlayerCard component matching Part 18 spec:
+- Dark card with position-color gradient border
+- Rating top-left, photo center, name and club/nation at bottom
+- Position colors: GK=#F59E0B, DEF=#3B82F6, MID=#22C55E, FWD=#EF4444
+- Hover: scale 1.04 + border opacity 100%
+
+Create PlayerFilters component with:
+- Position multi-select buttons
+- Rating dual range slider
+- Nation, Club, League searchable dropdowns
+- Status radio group
+
+Implement:
+- Debounced search at 300ms
+- Infinite scroll pagination
+- Skeleton loaders
+- React Query for all data fetching
+- Admin sees Add to Pool button, Owner sees Add to Watchlist button
+- Player Detail modal overlay with animated stat bars
+
+Connect to GET /api/players with query params from Part 8.
+
+PROMPT 5 - SOCKET.IO LIVE AUCTION
+-----------------------------------
+Implement the complete Socket.IO auction system from Part 11.
+
+BACKEND in backend/src/socket.ts:
+- All server events from the event map in Part 11
+- JWT validation in io.use() middleware
+- All 10 bid validation steps exactly as listed in Part 11
+- Atomic findOneAndUpdate with conditional { currentBid: { $lt: amount } }
+- Server-side timer using setInterval stored in Map<auctionId, NodeJS.Timeout>
+- clearInterval on: pause, sell, skip, unsold, complete
+- Player sold logic: all 7 steps from Part 11
+- Undo last sale: all 6 steps from Part 11
+
+FRONTEND:
+- useAuction.ts hook: connects to socket, joins room, manages Zustand state
+- Live Auction admin page: 3-panel layout from Part 19 Page 6
+- Live Auction owner page: layout from Part 19 Page 7
+- Mobile bid buttons: 2x2 grid, min 56px, from Part 20
+- AuctionTimer: SVG circle, colors green to amber to red
+- BidHistory: slide-in animation on new bid
+
+PROMPT 6 - STATISTICS AND EXPORT
+-----------------------------------
+Build Statistics page at /admin/statistics:
+- All stat cards from Part 15
+- Team leaderboard table
+- Top 10 sold players table
+- Position spending bar chart using recharts
+- Budget comparison chart using recharts
+
+Build Export page at /admin/export:
+- PDF export using jsPDF and jsPDF-autotable
+- CSV exports using json2csv
+- Connect to endpoints from Part 16
+- Loading states and success toasts per button
+
+ADDITIONAL RULES FOR AI EDITORS
+---------------------------------
+- Always use TypeScript strict mode, no any types
+- Every Socket.IO event must validate JWT before processing
+- All monetary amounts stored as integers not floats
+- Use React Query for all REST API calls, do not fetch in useEffect
+- All forms must handle loading, error, and success states
+- Test the auction with 2 browser windows simultaneously
+- Use Zod for API request validation on Express backend
+- Log all bid events to console.log in development
+
+================================================================================
+PART 23 - DEPLOYMENT GUIDE
+================================================================================
+
+FREE DEPLOYMENT STACK
+----------------------
+Service         Hosts                       Free Tier
+-----------     -----------------------     ----------------------------------
+MongoDB Atlas   Database                    512MB free forever
+Vercel          Next.js frontend            Free forever
+Railway         Express + Socket.IO         $5 credit per month
+Render          Express + Socket.IO         Free but sleeps after 15min
+GitHub          Code repository             Free forever
+
+STEP 1 - GITHUB SETUP
+----------------------
+cd your-project-folder
+git init
+git add .
+git commit -m "initial commit"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/fc26-auction.git
+git push -u origin main
+
+STEP 2 - MONGODB ATLAS
+-----------------------
+1. Go to mongodb.com/atlas and sign up
+2. Choose M0 free tier
+3. Region: AWS ap-south-1 Mumbai, closest to India
+4. Database Access: Add user fc26admin with strong password, Atlas Admin role
+5. Network Access: Add IP 0.0.0.0/0 to allow all connections
+6. Connect: Drivers, Node.js, copy connection string:
+   mongodb+srv://fc26admin:PASSWORD@fc26-cluster.xxxxx.mongodb.net/fc26auction
+7. Browse Collections: Add database fc26auction with collection users
+
+STEP 3 - RAILWAY BACKEND
+--------------------------
+1. Go to railway.app and login with GitHub
+2. New Project: Deploy from GitHub, select fc26-auction
+3. Settings: Root Directory = backend
+4. Build Command: npm install && npm run build
+5. Start Command: npm run start
+
+Add these environment variables:
+  MONGODB_URI = your atlas connection string
+  JWT_SECRET  = random string minimum 32 characters
+  PORT        = 4000
+  NODE_ENV    = production
+  FRONTEND_URL = https://your-app.vercel.app (fill after Vercel deploy)
+
+6. Deploy and get URL like: https://fc26-backend.up.railway.app
+7. Test: visit /api/health, should return { status: ok }
+
+STEP 4 - VERCEL FRONTEND
+--------------------------
+1. Go to vercel.com and login with GitHub
+2. Add New Project: Import fc26-auction
+3. Root Directory: frontend
+4. Framework: Next.js, auto-detected
+
+Add these environment variables:
+  NEXT_PUBLIC_API_URL    = https://fc26-backend.up.railway.app
+  NEXT_PUBLIC_SOCKET_URL = https://fc26-backend.up.railway.app
+  NEXT_PUBLIC_APP_NAME   = FC 26 Auction
+
+5. Deploy and get URL like: https://fc26-auction.vercel.app
+6. Go back to Railway and update FRONTEND_URL = https://fc26-auction.vercel.app
+7. Railway auto-redeploys, CORS now allows your Vercel domain
+
+STEP 5 - IMPORT PLAYERS
+-------------------------
+Add MONGODB_URI and FUTDB_API_KEY to backend/.env
+Then run: node scripts/importPlayers.js
+Verify in Atlas: Browse Collections, should see thousands of player documents
+
+STEP 6 - CREATE ADMIN ACCOUNT
+-------------------------------
+Create file scripts/createAdmin.js with this content:
+
+  const mongoose = require('mongoose');
+  const bcrypt = require('bcryptjs');
+  require('dotenv').config({ path: '../backend/.env' });
+
+  async function main() {
+    await mongoose.connect(process.env.MONGODB_URI);
+    const hashed = await bcrypt.hash('your-password-here', 12);
+    await mongoose.connection.collection('users').insertOne({
+      name: 'Admin',
+      email: 'admin@fc26.com',
+      password: hashed,
+      role: 'admin',
+      teamId: null,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    console.log('Admin created successfully');
+    process.exit(0);
+  }
+  main();
+
+Run it: node scripts/createAdmin.js
+
+STEP 7 - AUCTION DAY CHECKLIST
+--------------------------------
+Do this 30 minutes before your auction:
+
+  Vercel URL loads the login page
+  Railway /api/health returns OK
+  Admin logs in, player database has real data
+  Create the season in admin dashboard
+  Create all teams, assign owners, set budgets
+  Build the auction pool by adding players
+  Share Vercel URL and login credentials with all friends
+  Each friend logs in on their phone and confirms they can see the auction
+  Run a 1-player test auction to verify everything works
+  Start the real auction
+
+PUSHING UPDATES AFTER DEPLOYMENT
+----------------------------------
+Any code change: push to main and both Vercel and Railway auto-redeploy.
+
+  git add .
+  git commit -m "fix: description of what you fixed"
+  git push origin main
+
+FREE TIER LIMITS
+-----------------
+MongoDB Atlas M0:   512MB storage, 100 max connections, free forever
+Vercel Free:        100GB bandwidth/month, free forever
+Railway:            $5 credit/month, roughly 3-5 months free at low usage
+Render:             Completely free, backend sleeps after 15min inactivity
+                    To use Render: open the site 1 minute before auction to wake it
+
+================================================================================
+PART 24 - COMMON PITFALLS AND FIXES
+================================================================================
+
+Problem                         Cause                       Fix
+-----------------------------   -------------------------   ------------------------------------------
+Timer drifts between clients    Timer runs on client        Timer MUST run on server only
+Two bids accepted at once       No race condition fix        Use findOneAndUpdate with $lt conditional
+Budget goes negative            No server validation        Check remainingBudget >= amount before bid
+Player added to pool twice      No uniqueness check         Reject if status is not available
+Socket auth bypass              No token validation         Validate JWT in io.use() middleware
+Timer not stopping              setInterval leak            clearInterval on pause sell skip complete
+Player images show 404          Dead URLs in database       Always implement fallback SVG avatar
+Double bid on mobile            Tap registered twice        Disable bid button for 1 second after click
+CORS error on frontend          Wrong FRONTEND_URL          Exact match between Railway env and Vercel URL
+Railway deploy fails            TypeScript compile error    Run npm run build locally before pushing
+Vercel build fails              Next.js type error          Run npm run build in /frontend locally first
+Socket not connecting           Wrong SOCKET_URL            NEXT_PUBLIC_SOCKET_URL must match Railway exactly
+Budget not deducting            Atomic update failing       Check MongoDB connection in Railway logs
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+
+FC 26 Friends Auction Platform - Complete Build Document v1.0
+Build Phase 1 to 3 first. Ship MVP. Add Phase 4 and 5 after real feedback.
+
+Good luck. Make it legendary.
+
+================================================================================
