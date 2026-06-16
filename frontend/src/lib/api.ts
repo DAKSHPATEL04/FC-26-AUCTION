@@ -1,6 +1,10 @@
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+// All /api/* calls go through Next.js rewrites → backend.
+// Using an empty baseURL means requests go to the same origin (no CORS).
+const API_URL = typeof window !== "undefined"
+  ? ""  // browser: same-origin, rewrites handle the proxy
+  : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"); // SSR: direct
 
 export const api = axios.create({
   baseURL: API_URL,

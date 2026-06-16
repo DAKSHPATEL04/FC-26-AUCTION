@@ -27,7 +27,7 @@ export interface Player {
   playStyles?: string[];
   status: "available" | "pool" | "sold" | "unsold";
   auctionPoolOrder?: number | null;
-  soldTo?: { _id: string; teamName: string; logo?: string; color?: string } | null;
+  soldTo?: { _id: string; teamName: string; logo?: string; color?: string } | string | null;
   soldPrice?: number | null;
   basePrice?: number;
 }

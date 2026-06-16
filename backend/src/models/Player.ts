@@ -2,6 +2,7 @@ import { Schema, model } from "mongoose";
 
 const playerSchema = new Schema(
   {
+    sofifaId: { type: Number, unique: true, sparse: true, index: true },
     futdbId: { type: Number, unique: true, sparse: true, index: true },
     name: { type: String, required: true },
     commonName: { type: String, default: "" },
