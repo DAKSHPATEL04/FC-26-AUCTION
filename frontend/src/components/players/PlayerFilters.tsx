@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, X, SlidersHorizontal } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ChevronDown, X, SlidersHorizontal, Search } from "lucide-react";
 import { PlayerFilters } from "@/types/player.types";
 
 const POSITION_GROUPS = ["GK", "DEF", "MID", "FWD"];
@@ -40,6 +40,23 @@ export default function PlayerFiltersPanel({
   const [clubSearch, setClubSearch] = useState("");
   const [leagueSearch, setLeagueSearch] = useState("");
 
+  // Local name search — debounced 350ms before firing onChange
+  const [nameInput, setNameInput] = useState(filters.search ?? "");
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync nameInput when parent resets filters
+  useEffect(() => {
+    if (!filters.search) setNameInput("");
+  }, [filters.search]);
+
+  const handleNameChange = (value: string) => {
+    setNameInput(value);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      onChange({ ...filters, search: value });
+    }, 350);
+  };
+
   const updateFilter = (key: keyof PlayerFilters, value: any) => {
     onChange({ ...filters, [key]: value });
   };
@@ -55,6 +72,7 @@ export default function PlayerFiltersPanel({
   );
 
   const activeFiltersCount = [
+    filters.search,
     filters.positionGroup,
     filters.position,
     filters.nation,
@@ -67,7 +85,7 @@ export default function PlayerFiltersPanel({
 
   return (
     <div className="flex flex-col gap-1">
-      {/* Filter Header Toggle */}
+      {/* Header Toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold text-text-primary hover:bg-surface-elevated transition-colors"
@@ -81,14 +99,49 @@ export default function PlayerFiltersPanel({
             </span>
           )}
         </div>
-        <ChevronDown size={16} className={`text-text-secondary transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={16}
+          className={`text-text-secondary transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       {isOpen && (
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4">
-          {/* Position Group Buttons */}
+
+          {/* ── Player Name Search ── */}
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">Position</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+              Search by Name
+            </p>
+            <div className="relative">
+              <Search
+                size={13}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="Player name or common name..."
+                value={nameInput}
+                onChange={(e) => handleNameChange(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background pl-8 pr-8 py-2 text-xs text-text-primary placeholder:text-text-muted focus:border-accent-blue focus:outline-none transition-colors"
+              />
+              {nameInput && (
+                <button
+                  type="button"
+                  onClick={() => handleNameChange("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── Position ── */}
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+              Position
+            </p>
             <div className="grid grid-cols-4 gap-1.5">
               {POSITION_GROUPS.map((pg) => {
                 const color = POSITION_COLORS[pg];
@@ -110,7 +163,6 @@ export default function PlayerFiltersPanel({
               })}
             </div>
 
-            {/* Sub-position if group selected */}
             {filters.positionGroup && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {POSITIONS[filters.positionGroup]?.map((pos) => {
@@ -135,7 +187,7 @@ export default function PlayerFiltersPanel({
             )}
           </div>
 
-          {/* Rating Range Slider */}
+          {/* ── Rating Range ── */}
           <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
               Rating: {filters.ratingMin ?? 0} – {filters.ratingMax ?? 99}
@@ -166,9 +218,11 @@ export default function PlayerFiltersPanel({
             </div>
           </div>
 
-          {/* Nation */}
+          {/* ── Nation ── */}
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">Nation</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+              Nation
+            </p>
             <input
               type="text"
               placeholder="Search nation..."
@@ -181,10 +235,7 @@ export default function PlayerFiltersPanel({
                 {filteredNations.slice(0, 8).map((n) => (
                   <button
                     key={n}
-                    onClick={() => {
-                      updateFilter("nation", n);
-                      setNationSearch(n);
-                    }}
+                    onClick={() => { updateFilter("nation", n); setNationSearch(n); }}
                     className={`block w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-border ${
                       filters.nation === n ? "text-accent-blue" : "text-text-secondary"
                     }`}
@@ -204,9 +255,11 @@ export default function PlayerFiltersPanel({
             )}
           </div>
 
-          {/* Club */}
+          {/* ── Club ── */}
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">Club</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+              Club
+            </p>
             <input
               type="text"
               placeholder="Search club..."
@@ -219,10 +272,7 @@ export default function PlayerFiltersPanel({
                 {filteredClubs.slice(0, 8).map((c) => (
                   <button
                     key={c}
-                    onClick={() => {
-                      updateFilter("club", c);
-                      setClubSearch(c);
-                    }}
+                    onClick={() => { updateFilter("club", c); setClubSearch(c); }}
                     className={`block w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-border ${
                       filters.club === c ? "text-accent-blue" : "text-text-secondary"
                     }`}
@@ -242,9 +292,11 @@ export default function PlayerFiltersPanel({
             )}
           </div>
 
-          {/* League */}
+          {/* ── League ── */}
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">League</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+              League
+            </p>
             <input
               type="text"
               placeholder="Search league..."
@@ -257,10 +309,7 @@ export default function PlayerFiltersPanel({
                 {filteredLeagues.slice(0, 8).map((l) => (
                   <button
                     key={l}
-                    onClick={() => {
-                      updateFilter("league", l);
-                      setLeagueSearch(l);
-                    }}
+                    onClick={() => { updateFilter("league", l); setLeagueSearch(l); }}
                     className={`block w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-border ${
                       filters.league === l ? "text-accent-blue" : "text-text-secondary"
                     }`}
@@ -280,9 +329,11 @@ export default function PlayerFiltersPanel({
             )}
           </div>
 
-          {/* Status Radio */}
+          {/* ── Status ── */}
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">Status</p>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+              Status
+            </p>
             <div className="flex flex-col gap-1.5">
               {[
                 { label: "All Players", value: "" },
@@ -305,7 +356,7 @@ export default function PlayerFiltersPanel({
             </div>
           </div>
 
-          {/* Reset Button */}
+          {/* ── Reset ── */}
           <button
             onClick={onReset}
             className="w-full rounded-lg border border-border py-2 text-xs font-semibold text-text-secondary hover:border-accent-red hover:text-accent-red transition-all"

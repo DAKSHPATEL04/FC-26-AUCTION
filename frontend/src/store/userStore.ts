@@ -68,8 +68,17 @@ export const useUserStore = create<UserState>((set) => ({
     
     set({ loading: true, error: null });
     try {
-      const response = await api.get("/api/auth/me");
-      set({ user: response.data, token, loading: false });
+      // Refresh token first to get latest role + teamId from DB
+      // (handles cases where admin assigned a team after the user logged in)
+      const refreshRes = await api.post("/api/auth/refresh-token");
+      const { token: newToken, user } = refreshRes.data;
+
+      localStorage.setItem("fc26_token", newToken);
+      if (typeof window !== "undefined") {
+        document.cookie = `fc26_token=${newToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      }
+
+      set({ user, token: newToken, loading: false });
     } catch (err: any) {
       localStorage.removeItem("fc26_token");
       if (typeof window !== "undefined") {

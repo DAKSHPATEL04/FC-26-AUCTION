@@ -110,6 +110,45 @@ router.get("/me", authenticateJWT as any, async (req: AuthRequest, res: Response
   }
 });
 
+// POST /api/auth/refresh-token - Re-issue JWT with latest role + teamId from DB
+// Needed when admin assigns a team/role after the user already logged in
+router.post("/refresh-token", authenticateJWT as any, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ message: "Account is deactivated" });
+    }
+
+    // Issue a fresh token with latest role and teamId from DB
+    const token = jwt.sign(
+      { id: user._id, role: user.role, teamId: user.teamId },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        teamId: user.teamId,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /api/auth/users - Get users (optional filter by role)
 router.get("/users", authenticateJWT as any, async (req: AuthRequest, res: Response) => {
   try {

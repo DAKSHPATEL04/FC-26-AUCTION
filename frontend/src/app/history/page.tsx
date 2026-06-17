@@ -121,9 +121,19 @@ export default function HistoryPage() {
                             <div className="h-8 w-8 rounded-full border overflow-hidden bg-background flex-shrink-0">
                               {player.image ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={player.image} alt={player.name} className="h-full w-full object-cover" />
+                                <img
+                                  src={
+                                    player.image.startsWith("http")
+                                      ? `/api/image-proxy?url=${encodeURIComponent(player.image)}`
+                                      : player.image
+                                  }
+                                  alt={player.name}
+                                  className="h-full w-full object-cover"
+                                />
                               ) : (
-                                <span className="flex h-full w-full items-center justify-center text-xs">⚽</span>
+                                <span className="flex h-full w-full items-center justify-center text-xs font-bold text-text-muted">
+                                  {(player.commonName || player.name).slice(0, 2).toUpperCase()}
+                                </span>
                               )}
                             </div>
                             <div>

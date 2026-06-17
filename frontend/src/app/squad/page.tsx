@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { Player } from "@/types/player.types";
 import { motion } from "framer-motion";
 import { Shield, Coins, Users, Star, Sparkles, Loader2 } from "lucide-react";
+import { io } from "socket.io-client";
 
 interface TeamData {
   _id: string;
@@ -52,6 +53,37 @@ export default function MySquadPage() {
   useEffect(() => {
     fetchMyTeam();
   }, [fetchMyTeam]);
+
+  // Keep a stable ref so the socket handler always calls the latest version
+  const fetchMyTeamRef = useCallback(() => {
+    fetchMyTeam();
+  }, [fetchMyTeam]);
+
+  // Subscribe to auction sold/undo events so the squad updates in real-time
+  useEffect(() => {
+    const token = localStorage.getItem("fc26_token");
+    if (!token || !user?.teamId) return;
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const socket = io(API_URL, {
+      auth: { token },
+      transports: ["websocket"],
+    });
+
+    // Refresh squad whenever any player is sold, unsold, or a draft is undone
+    socket.on("auction:sold_broadcast", () => {
+      // Short delay to ensure DB write has committed
+      setTimeout(() => fetchMyTeamRef(), 800);
+    });
+
+    socket.on("auction:undo_broadcast", () => {
+      setTimeout(() => fetchMyTeamRef(), 800);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user?.teamId, fetchMyTeamRef]);
 
   if (!user?.teamId) {
     return (
@@ -132,7 +164,7 @@ export default function MySquadPage() {
                 </div>
                 <div className="bg-background border border-border px-4 py-2 rounded-xl text-center">
                   <span className="text-[10px] font-bold text-text-muted uppercase">Squad Size</span>
-                  <span className="block font-display text-lg font-black text-accent-blue mt-0.5">{team.players.length} / 15</span>
+                  <span className="block font-display text-lg font-black text-accent-blue mt-0.5">{team.players.length} / 22</span>
                 </div>
               </div>
             </div>

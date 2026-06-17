@@ -213,18 +213,18 @@ export default function StatisticsPage() {
               <div className="lg:col-span-1 border border-border bg-surface rounded-2xl p-6 flex flex-col justify-between">
                 <div>
                   <h3 className="font-display text-lg font-bold text-text-primary mb-1">Squad Space</h3>
-                  <p className="text-xs text-text-secondary mb-6">Visual draft counts compared to the 15-player squad limit.</p>
+                  <p className="text-xs text-text-secondary mb-6">Visual draft counts compared to the 22-player squad limit.</p>
                 </div>
 
                 <div className="space-y-6 flex-1 flex flex-col justify-center">
                   {teamStats.map((team) => {
-                    const squadPct = Math.min((team.squadSize / 15) * 100, 100);
+                    const squadPct = Math.min((team.squadSize / 22) * 100, 100);
                     return (
                       <div key={team._id} className="space-y-1.5">
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-text-primary font-semibold">{team.teamName}</span>
                           <span className="text-text-secondary font-bold">
-                            {team.squadSize} <span className="text-text-muted">/ 15</span>
+                            {team.squadSize} <span className="text-text-muted">/ 22</span>
                           </span>
                         </div>
                         <div className="relative w-full h-3 rounded-full bg-background border border-border overflow-hidden">

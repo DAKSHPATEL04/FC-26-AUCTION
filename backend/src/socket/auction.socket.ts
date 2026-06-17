@@ -10,7 +10,7 @@ import { BidHistory } from "../models/BidHistory.js";
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretjwtsecretkeyshouldbe32charactersormore!";
 
 // Maximum squad size for validation
-const MAX_SQUAD_SIZE = 15;
+const MAX_SQUAD_SIZE = 22;
 const OVERTIME_SECONDS = 10; // Sniper protection limit
 
 interface ActiveState {
@@ -44,6 +44,8 @@ let state: ActiveState = {
 
 let timerInterval: NodeJS.Timeout | null = null;
 let ioInstance: Server | null = null;
+// Guard to prevent double-firing of sold/unsold transition when timer hits 0
+let transitionInProgress = false;
 
 // Helper to broadcast state to all clients
 function broadcastState() {
@@ -192,6 +194,7 @@ export function initAuctionSocket(io: Server) {
           teamName: team.teamName,
           playerName: state.currentPlayer.commonName || state.currentPlayer.name,
           amount,
+          color: team.color || "#3B82F6",
         });
 
       } catch (err: any) {
@@ -236,6 +239,7 @@ export function initAuctionSocket(io: Server) {
 
       state.status = "bidding";
       state.timer = 30;
+      transitionInProgress = false;
       
       startCountdown();
       broadcastState();
@@ -351,26 +355,38 @@ export function initAuctionSocket(io: Server) {
 // Timer Countdown Loop
 function startCountdown() {
   if (timerInterval) clearInterval(timerInterval);
+  transitionInProgress = false;
 
   timerInterval = setInterval(async () => {
-    if (state.status !== "bidding") {
+    // If already transitioning or no longer bidding, stop immediately
+    if (state.status !== "bidding" || transitionInProgress) {
       if (timerInterval) clearInterval(timerInterval);
       return;
     }
 
     state.timer -= 1;
 
+    // Always broadcast so clients see the timer tick down to 0
+    broadcastState();
+
     if (state.timer <= 0) {
       if (timerInterval) clearInterval(timerInterval);
+      timerInterval = null;
+
+      // Set guard immediately so no second tick can sneak in during the async work
+      transitionInProgress = true;
       
+      // Small delay so clients see "0s" before the sold/unsold overlay fires
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
       // Timer finished, resolve auction!
       if (state.highestBidder) {
         await handleSoldTransition();
       } else {
         await handleUnsoldTransition();
       }
-    } else {
-      broadcastState();
+
+      transitionInProgress = false;
     }
   }, 1000);
 }
@@ -379,9 +395,16 @@ function startCountdown() {
 async function handleSoldTransition() {
   if (!state.currentPlayer || !state.highestBidder || !ioInstance) return;
 
+  // Lock status immediately to prevent any re-entry (bids, timer ticks, etc.)
+  state.status = "idle";
+
   const player = state.currentPlayer;
   const teamId = state.highestBidder._id;
   const finalPrice = state.currentBid;
+  // Capture bidder info before any state mutation
+  const soldPlayerName = player.commonName || player.name;
+  const buyerName = state.highestBidder.teamName;
+  const bidderColor = state.highestBidder.color || "#3B82F6";
 
   try {
     // 1. Update Player document
@@ -415,29 +438,39 @@ async function handleSoldTransition() {
       isWinningBid: true,
     });
 
-    // Reset Live Auction state
-    const soldPlayerName = player.commonName || player.name;
-    const buyerName = state.highestBidder.teamName;
+    const buyerColor = team?.color || bidderColor;
 
-    state.currentPlayer = null;
-    state.currentBid = 0;
-    state.highestBidder = null;
-    state.bidHistory = [];
-    state.status = "idle";
-    state.timer = 0;
-
-    broadcastState();
-    
-    // Broadcast Sold success event to trigger effects (Confetti!)
+    // 1st: Fire the sold overlay broadcast BEFORE clearing currentPlayer from state
+    // so the frontend overlay has the player data it needs
     ioInstance.emit("auction:sold_broadcast", {
       playerName: soldPlayerName,
       buyerName,
       price: finalPrice,
       playerImage: player.image,
+      buyerColor,
+      teamId,
     });
+
+    // 2nd: Now fully clear state (currentPlayer, bid, bidder, history)
+    state.currentPlayer = null;
+    state.currentBid = 0;
+    state.highestBidder = null;
+    state.bidHistory = [];
+    state.timer = 0;
+    // status is already "idle" (set at top)
+
+    // 3rd: Broadcast the cleared state so all clients update the stage
+    broadcastState();
 
   } catch (err) {
     console.error("Failed to complete SOLD transition:", err);
+    // On error, still clear to avoid stuck state
+    state.currentPlayer = null;
+    state.currentBid = 0;
+    state.highestBidder = null;
+    state.bidHistory = [];
+    state.timer = 0;
+    broadcastState();
   }
 }
 
@@ -445,7 +478,11 @@ async function handleSoldTransition() {
 async function handleUnsoldTransition() {
   if (!state.currentPlayer || !ioInstance) return;
 
+  // Lock status immediately to prevent re-entry
+  state.status = "idle";
+
   const player = state.currentPlayer;
+  const unsoldPlayerName = player.commonName || player.name;
 
   try {
     // Update player status in database
@@ -453,24 +490,30 @@ async function handleUnsoldTransition() {
       status: "unsold",
     });
 
-    const unsoldPlayerName = player.commonName || player.name;
-
-    // Reset Live state
-    state.currentPlayer = null;
-    state.currentBid = 0;
-    state.highestBidder = null;
-    state.bidHistory = [];
-    state.status = "idle";
-    state.timer = 0;
-
-    broadcastState();
-
-    // Broadcast Unsold event
+    // 1st: Broadcast unsold event BEFORE clearing currentPlayer
     ioInstance.emit("auction:unsold_broadcast", {
       playerName: unsoldPlayerName,
     });
 
+    // 2nd: Clear all state
+    state.currentPlayer = null;
+    state.currentBid = 0;
+    state.highestBidder = null;
+    state.bidHistory = [];
+    state.timer = 0;
+    // status is already "idle"
+
+    // 3rd: Broadcast cleared state
+    broadcastState();
+
   } catch (err) {
     console.error("Failed to complete UNSOLD transition:", err);
+    // On error, still clear to avoid stuck state
+    state.currentPlayer = null;
+    state.currentBid = 0;
+    state.highestBidder = null;
+    state.bidHistory = [];
+    state.timer = 0;
+    broadcastState();
   }
 }

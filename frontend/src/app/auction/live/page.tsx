@@ -7,6 +7,8 @@ import { api } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
+import PlayerDetailModal from "@/components/players/PlayerDetail";
+import { Player } from "@/types/player.types";
 import {
   Tv2,
   Coins,
@@ -22,6 +24,8 @@ import {
   TrendingUp,
   Award,
   Sparkles,
+  Eye,
+  Loader2,
 } from "lucide-react";
 
 interface SocketPlayer {
@@ -56,11 +60,15 @@ interface BidFeedItem {
 }
 
 export default function LiveAuctionPage() {
-  const { user } = useUserStore();
+  const { user, fetchMe } = useUserStore();
   const isAdmin = user?.role === "admin";
   const isOwner = user?.role === "owner";
 
   const [socket, setSocket] = useState<Socket | null>(null);
+
+  // Keep a ref to soundEnabled so socket handlers always read the latest value
+  // without needing to re-register the socket
+  const soundEnabledRef = useRef(true);
 
   // Auction State
   const [currentPlayer, setCurrentPlayer] = useState<SocketPlayer | null>(null);
@@ -88,11 +96,25 @@ export default function LiveAuctionPage() {
     buyerName: string;
     price: number;
     playerImage?: string;
+    buyerColor?: string;
   } | null>(null);
   const [unsoldOverlay, setUnsoldOverlay] = useState<string | null>(null);
+  // Last sale result shown on idle stage
+  const [lastSale, setLastSale] = useState<{
+    playerName: string;
+    buyerName: string;
+    price: number;
+    playerImage?: string;
+    buyerColor?: string;
+  } | null>(null);
   
   // Custom Bid Input
   const [customBid, setCustomBid] = useState("");
+  // Player detail modal
+  const [detailPlayer, setDetailPlayer] = useState<Player | null>(null);
+  // Bid toast notifications
+  const [bidToasts, setBidToasts] = useState<Array<{ id: number; teamName: string; amount: number; color: string }>>([]);
+  const toastCounter = useRef(0);
 
   const bidSoundRef = useRef<HTMLAudioElement | null>(null);
   const soldSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -110,15 +132,24 @@ export default function LiveAuctionPage() {
     }
   };
 
+  // Keep a ref to fetchOwnerTeam so socket handlers (stale closures) always call the latest version
+  const fetchOwnerTeamRef = useRef(fetchOwnerTeam);
+  useEffect(() => {
+    fetchOwnerTeamRef.current = fetchOwnerTeam;
+  });
+
   useEffect(() => {
     if (isOwner) {
       fetchOwnerTeam();
     }
-  }, [isOwner, user?.teamId, currentBid]); // Refresh when bids update
+    // Re-fetch on any auction state change so budget + squad is always fresh
+  }, [isOwner, user?.teamId, status, currentBid]);
 
   // Initialize Socket.IO connection
   useEffect(() => {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+    // Always use the freshest token from localStorage (may have been refreshed by fetchMe)
     const token = localStorage.getItem("fc26_token");
 
     const newSocket = io(API_URL, {
@@ -138,15 +169,23 @@ export default function LiveAuctionPage() {
       setMinBidIncrement(data.minBidIncrement);
       setBidHistory(data.bidHistory || []);
       setErrorMsg(null);
+      // When a new player is loaded, clear the last-sale recap so the stage shows the new player cleanly
+      if (data.currentPlayer) {
+        setLastSale(null);
+      }
     });
 
     newSocket.on("bid:broadcast", (data) => {
-      if (soundEnabled && bidSoundRef.current) {
+      if (soundEnabledRef.current && bidSoundRef.current) {
         bidSoundRef.current.currentTime = 0;
         bidSoundRef.current.play().catch(() => {});
       }
-      // Re-fetch owner team stats if a bid goes through to sync budget
-      if (isOwner) fetchOwnerTeam();
+      // Show bid toast to everyone
+      const id = ++toastCounter.current;
+      setBidToasts((prev) => [...prev, { id, teamName: data.teamName, amount: data.amount, color: data.color || "#3B82F6" }]);
+      setTimeout(() => setBidToasts((prev) => prev.filter((t) => t.id !== id)), 3500);
+      // Use ref so stale closure always calls latest fetchOwnerTeam
+      fetchOwnerTeamRef.current();
     });
 
     newSocket.on("bid:error", (data: { message: string }) => {
@@ -155,8 +194,9 @@ export default function LiveAuctionPage() {
     });
 
     newSocket.on("auction:sold_broadcast", (data) => {
+      // Show overlay immediately (backend fires this BEFORE clearing state)
       setSoldOverlay(data);
-      if (soundEnabled && soldSoundRef.current) {
+      if (soundEnabledRef.current && soldSoundRef.current) {
         soldSoundRef.current.play().catch(() => {});
       }
       // Fire confetti!
@@ -165,27 +205,40 @@ export default function LiveAuctionPage() {
         spread: 80,
         origin: { y: 0.6 },
       });
-      // Refresh owner statistics
-      if (isOwner) fetchOwnerTeam();
 
-      setTimeout(() => setSoldOverlay(null), 5000);
+      // Save as last sale result (shown on idle stage after overlay closes)
+      setLastSale({
+        playerName: data.playerName,
+        buyerName: data.buyerName,
+        price: data.price,
+        playerImage: data.playerImage,
+        buyerColor: data.buyerColor,
+      });
+
+      // Refresh owner team budget + squad — first immediately, then again after DB settles
+      fetchOwnerTeamRef.current();
+      setTimeout(() => fetchOwnerTeamRef.current(), 1500);
+
+      // Auto-close overlay after 6 seconds
+      setTimeout(() => setSoldOverlay(null), 6000);
     });
 
     newSocket.on("auction:unsold_broadcast", (data) => {
       setUnsoldOverlay(data.playerName);
+      // Clear unsold overlay after 3 seconds
       setTimeout(() => setUnsoldOverlay(null), 3000);
-      if (isOwner) fetchOwnerTeam();
+      fetchOwnerTeamRef.current();
     });
 
     newSocket.on("auction:undo_broadcast", (data) => {
       alert(`Admin undid the draft for player: ${data.playerName}`);
-      if (isOwner) fetchOwnerTeam();
+      fetchOwnerTeamRef.current();
     });
 
     return () => {
       newSocket.disconnect();
     };
-  }, [soundEnabled, isOwner]);
+  }, []);  // Empty deps: socket is created once and never torn down on state changes
 
   // Audio objects initialization
   useEffect(() => {
@@ -197,11 +250,11 @@ export default function LiveAuctionPage() {
 
   // Tick sound on low timer
   useEffect(() => {
-    if (status === "bidding" && timer <= 5 && timer > 0 && soundEnabled && timerSoundRef.current) {
+    if (status === "bidding" && timer <= 5 && timer > 0 && soundEnabledRef.current && timerSoundRef.current) {
       timerSoundRef.current.currentTime = 0;
       timerSoundRef.current.play().catch(() => {});
     }
-  }, [timer, status, soundEnabled]);
+  }, [timer, status]);
 
   // Actions: Owner Bids
   const placeBid = (amount: number) => {
@@ -256,12 +309,12 @@ export default function LiveAuctionPage() {
   const basePrice = currentPlayer?.basePrice || 10;
   const minRequiredBid = highestBidder ? currentBid + minBidIncrement : basePrice;
 
-  // Preset Bid buttons (e.g. min, +10, +50, +100)
+  // Fixed preset increments: bid at min, min+50, min+100, min+200
   const presets = [
-    { label: `${minRequiredBid}`, value: minRequiredBid },
-    { label: `+${minBidIncrement}`, value: minRequiredBid + minBidIncrement },
-    { label: `+50`, value: minRequiredBid + 50 },
-    { label: `+100`, value: minRequiredBid + 100 },
+    { label: "Min Bid",  value: minRequiredBid },
+    { label: "+50",      value: minRequiredBid + 50 },
+    { label: "+100",     value: minRequiredBid + 100 },
+    { label: "+200",     value: minRequiredBid + 200 },
   ];
 
   // Colors based on positions
@@ -272,10 +325,45 @@ export default function LiveAuctionPage() {
 
   // Check if owner is disabled from bidding
   const isHighestBidder = highestBidder?._id === ownerTeam?._id;
-  const isBudgetInsufficient = (ownerTeam?.remainingBudget ?? 0) < minRequiredBid;
-  const isSquadFull = (ownerTeam?.players?.length ?? 0) >= 15;
+  const isBudgetInsufficient = (ownerTeam?.remainingBudget ?? Infinity) < minRequiredBid;
+  const isSquadFull = (ownerTeam?.players?.length ?? 0) >= 22;
   const isBiddingClosed = status !== "bidding";
-  const isBidDisabled = isHighestBidder || isBudgetInsufficient || isSquadFull || isBiddingClosed;
+  // Only hard-block on things the backend also blocks: squad full, bidding closed, already highest bidder
+  // Budget check is a SOFT warning only — backend validates the real budget on bid:place
+  const isBidDisabled = isHighestBidder || isSquadFull || isBiddingClosed;
+
+  // Fetch full player data from API and open detail modal
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const openPlayerDetail = async () => {
+    if (!currentPlayer) return;
+    setDetailLoading(true);
+    try {
+      const res = await api.get(`/api/players/${currentPlayer._id}`);
+      setDetailPlayer(res.data);
+    } catch (err) {
+      // Fallback to socket data if API call fails
+      console.error("Failed to fetch full player data:", err);
+      setDetailPlayer({
+        _id: currentPlayer._id,
+        name: currentPlayer.name,
+        commonName: currentPlayer.commonName,
+        image: currentPlayer.image,
+        nation: currentPlayer.nation,
+        nationFlag: currentPlayer.nationFlag,
+        club: currentPlayer.club,
+        clubLogo: currentPlayer.clubLogo,
+        league: currentPlayer.league,
+        position: currentPlayer.position,
+        positionGroup: currentPlayer.positionGroup as Player["positionGroup"],
+        rating: currentPlayer.rating,
+        basePrice: currentPlayer.basePrice,
+        status: "pool",
+      });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   return (
     <AuthenticatedLayout>
@@ -294,11 +382,29 @@ export default function LiveAuctionPage() {
           <div className="flex items-center gap-4">
             {/* Audio Toggle */}
             <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={() => {
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                soundEnabledRef.current = next;
+              }}
               className="p-2 rounded-lg border border-border bg-surface hover:text-text-primary transition-all text-text-secondary"
             >
               {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
+
+            {/* Refresh Session — re-fetches JWT so newly assigned teamId/role takes effect */}
+            {!isAdmin && (
+              <button
+                onClick={async () => {
+                  await fetchMe();
+                  window.location.reload();
+                }}
+                title="If you were recently assigned to a team, click to refresh your session"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-surface text-text-secondary hover:text-text-primary text-xs font-bold transition-all"
+              >
+                <RotateCcw size={13} /> Refresh Session
+              </button>
+            )}
 
             {/* Role Badge */}
             <span className="bg-accent-blue/10 text-accent-blue text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border border-accent-blue/20">
@@ -322,6 +428,30 @@ export default function LiveAuctionPage() {
           )}
         </AnimatePresence>
 
+        {/* No team assigned warning for owners */}
+        {isOwner && !user?.teamId && (
+          <div className="rounded-xl border border-accent-amber/30 bg-accent-amber/5 p-4 text-sm text-accent-amber flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle size={16} />
+              <span className="font-bold">You are not assigned to a team yet. Ask your admin to assign you, then click Refresh Session.</span>
+            </div>
+            <button
+              onClick={async () => { await fetchMe(); window.location.reload(); }}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-black text-xs font-bold transition-all"
+            >
+              <RotateCcw size={12} /> Refresh
+            </button>
+          </div>
+        )}
+
+        {/* Guest cannot bid notice */}
+        {!isAdmin && !isOwner && (
+          <div className="rounded-xl border border-border bg-surface p-4 text-sm text-text-secondary flex items-center gap-2.5">
+            <AlertTriangle size={16} />
+            <span>You are logged in as <strong>guest</strong>. You can watch the auction but cannot place bids. Ask the admin to assign you as a team owner.</span>
+          </div>
+        )}
+
         {/* Main Stage Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
           
@@ -340,72 +470,188 @@ export default function LiveAuctionPage() {
               </h3>
 
               {currentPlayer ? (
-                <div className="flex flex-col items-center text-center w-full">
-                  
-                  {/* Rating + Position badge */}
-                  <div className="flex gap-2 items-center mb-4">
-                    <span className="font-display text-3xl font-black text-text-primary">
-                      {currentPlayer.rating}
-                    </span>
-                    <span
-                      className="text-xs font-extrabold uppercase px-2.5 py-1 rounded border"
-                      style={{ color: posColor, borderColor: `${posColor}40`, backgroundColor: `${posColor}10` }}
-                    >
+                /* ── Hover card — same pattern as PlayerCard ── */
+                <motion.div
+                  className="group relative flex w-full flex-col rounded-xl border overflow-hidden cursor-pointer select-none"
+                  style={{
+                    background: `linear-gradient(160deg, ${posColor}18 0%, #141414 60%)`,
+                    borderColor: `${posColor}30`,
+                    aspectRatio: "3/4",
+                  }}
+                  whileHover={{
+                    scale: 1.03,
+                    borderColor: posColor,
+                    transition: { duration: 0.15, ease: "easeOut" },
+                  }}
+                  onClick={() => openPlayerDetail()}
+                >
+                  {/* Rating + Position */}
+                  <div className="absolute top-3 left-3 flex flex-col items-center leading-none">
+                    <span className="font-display text-2xl font-black text-text-primary">{currentPlayer.rating}</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: posColor }}>
                       {currentPlayer.position}
                     </span>
                   </div>
 
-                  {/* Player Image */}
-                  <div
-                    className="h-32 w-32 rounded-full border-4 overflow-hidden shadow-2xl flex items-center justify-center bg-background"
-                    style={{ borderColor: `${posColor}80` }}
-                  >
-                    {currentPlayer.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={currentPlayer.image} alt={currentPlayer.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="font-display text-4xl font-bold text-text-primary">
-                        {currentPlayer.name.slice(0, 2).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Name */}
-                  <h2 className="font-display text-xl font-bold text-text-primary mt-4 truncate max-w-full">
-                    {currentPlayer.commonName || currentPlayer.name}
-                  </h2>
-                  <p className="text-xs text-text-secondary mt-1">
-                    {currentPlayer.club} | {currentPlayer.league}
-                  </p>
-
-                  {/* Club & Flag Flags */}
-                  <div className="flex items-center gap-4 mt-3">
-                    {currentPlayer.clubLogo && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={currentPlayer.clubLogo} alt={currentPlayer.club} className="h-6 w-6 object-contain" />
-                    )}
-                    {currentPlayer.nationFlag && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={currentPlayer.nationFlag} alt={currentPlayer.nation} className="h-4 w-6 object-cover rounded-sm" />
-                    )}
-                  </div>
-
-                  {/* Base price */}
-                  <div className="mt-5 bg-background border border-border px-4 py-2 rounded-xl text-center w-full flex items-center justify-between">
-                    <span className="text-xs text-text-secondary uppercase font-bold tracking-wider">Base Price</span>
-                    <span className="font-display text-sm font-black text-accent-amber flex items-center gap-1">
-                      <Coins size={14} /> {currentPlayer.basePrice} coins
+                  {/* Live badge */}
+                  <div className="absolute top-3 right-3">
+                    <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-accent-red/10 text-accent-red border border-accent-red/30 animate-pulse">
+                      LIVE
                     </span>
                   </div>
 
-                </div>
+                  {/* Player Photo */}
+                  <div className="flex flex-1 items-center justify-center pt-4">
+                    <div
+                      className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 overflow-hidden"
+                      style={{ borderColor: `${posColor}60` }}
+                    >
+                      {currentPlayer.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            currentPlayer.image.startsWith("http")
+                              ? `/api/image-proxy?url=${encodeURIComponent(currentPlayer.image)}`
+                              : currentPlayer.image
+                          }
+                          alt={currentPlayer.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="font-display text-2xl font-bold text-text-primary">
+                          {(currentPlayer.commonName || currentPlayer.name).slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Name */}
+                  <div className="px-3 pb-2 text-center">
+                    <p className="truncate text-sm font-bold text-text-primary leading-tight">
+                      {currentPlayer.commonName || currentPlayer.name}
+                    </p>
+                    <p className="text-[10px] text-text-secondary mt-0.5 truncate">
+                      {currentPlayer.club} · {currentPlayer.league}
+                    </p>
+                  </div>
+
+                  {/* Club + Nation + Base Price */}
+                  <div className="flex items-center justify-between px-3 pb-3">
+                    <div className="flex h-6 w-6 items-center justify-center">
+                      {currentPlayer.clubLogo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            currentPlayer.clubLogo.startsWith("http")
+                              ? `/api/image-proxy?url=${encodeURIComponent(currentPlayer.clubLogo)}`
+                              : currentPlayer.clubLogo
+                          }
+                          alt={currentPlayer.club}
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-text-muted">{currentPlayer.club?.slice(0, 3)}</span>
+                      )}
+                    </div>
+
+                    <span className="font-display text-xs font-black text-accent-amber flex items-center gap-0.5">
+                      <Coins size={11} /> {currentPlayer.basePrice}
+                    </span>
+
+                    <div className="flex h-5 w-7 items-center justify-center">
+                      {currentPlayer.nationFlag ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            currentPlayer.nationFlag.startsWith("http")
+                              ? `/api/image-proxy?url=${encodeURIComponent(currentPlayer.nationFlag)}`
+                              : currentPlayer.nationFlag
+                          }
+                          alt={currentPlayer.nation}
+                          className="h-full w-full object-cover rounded-sm"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-text-muted">{currentPlayer.nation?.slice(0, 3)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Hover overlay — eye button (visible to everyone) */}
+                  <motion.div
+                    className="absolute inset-0 flex items-end justify-center gap-2 px-3 pb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 40%, transparent)" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openPlayerDetail(); }}
+                      title="View Details"
+                      className="flex items-center gap-1.5 h-9 px-4 items-center justify-center rounded-full border border-border bg-surface-elevated text-text-secondary hover:text-text-primary text-xs font-bold transition-colors"
+                    >
+                      {detailLoading ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
+                      {detailLoading ? "Loading..." : "View Details"}
+                    </button>
+                  </motion.div>
+                </motion.div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <span className="text-5xl animate-pulse">🏟️</span>
-                  <h4 className="mt-4 font-display text-base font-bold text-text-primary">Stage is Empty</h4>
-                  <p className="text-xs text-text-secondary mt-1 max-w-xs">
-                    Admin needs to load the next player from the auction pool queue to start bidding.
-                  </p>
+                <div className="flex flex-col items-center justify-center py-10 text-center w-full gap-4">
+                  {lastSale ? (
+                    /* Last sale recap shown when stage is idle */
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="w-full flex flex-col items-center gap-3"
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-widest text-text-muted px-3 py-1 border border-border rounded-full bg-surface">
+                        Last Sold
+                      </span>
+
+                      {lastSale.playerImage && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={
+                            lastSale.playerImage.startsWith("http")
+                              ? `/api/image-proxy?url=${encodeURIComponent(lastSale.playerImage)}`
+                              : lastSale.playerImage
+                          }
+                          alt={lastSale.playerName}
+                          className="h-20 w-20 rounded-full border-2 border-accent-amber/40 object-cover shadow-xl"
+                        />
+                      )}
+
+                      <div>
+                        <p className="font-display text-base font-black text-text-primary">{lastSale.playerName}</p>
+                        <p className="text-xs text-text-secondary mt-0.5">Drafted to</p>
+                        <span
+                          className="inline-block font-bold text-sm mt-1 px-3 py-0.5 rounded-full border uppercase"
+                          style={{
+                            color: lastSale.buyerColor || "#3B82F6",
+                            borderColor: `${lastSale.buyerColor || "#3B82F6"}40`,
+                            backgroundColor: `${lastSale.buyerColor || "#3B82F6"}15`,
+                          }}
+                        >
+                          {lastSale.buyerName}
+                        </span>
+                      </div>
+
+                      <div className="bg-background border border-border rounded-xl px-5 py-2.5 flex items-center gap-2">
+                        <Coins size={14} className="text-accent-amber" />
+                        <span className="font-display text-lg font-black text-accent-amber">{lastSale.price}</span>
+                        <span className="text-xs text-text-muted">coins</span>
+                      </div>
+
+                      <p className="text-[10px] text-text-muted animate-pulse mt-1">
+                        Waiting for admin to load next player…
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <>
+                      <span className="text-5xl animate-pulse">🏟️</span>
+                      <h4 className="font-display text-base font-bold text-text-primary">Stage is Empty</h4>
+                      <p className="text-xs text-text-secondary max-w-xs">
+                        Admin needs to load the next player from the auction pool queue to start bidding.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -427,7 +673,7 @@ export default function LiveAuctionPage() {
                   </div>
                   <div className="bg-background border border-border p-3 rounded-xl">
                     <p className="text-[10px] uppercase font-bold text-text-muted">Squad Size</p>
-                    <p className="text-base font-black text-accent-blue mt-0.5">{ownerTeam.players.length} / 15</p>
+                    <p className="text-base font-black text-accent-blue mt-0.5">{ownerTeam.players.length} / 22</p>
                   </div>
                 </div>
               </div>
@@ -519,53 +765,74 @@ export default function LiveAuctionPage() {
                       <Award size={14} /> You are currently holding the winning bid!
                     </div>
                   )}
-                  {isBudgetInsufficient && (
-                    <div className="bg-accent-red/5 border border-accent-red/20 rounded-xl p-3 text-xs text-accent-red flex items-center gap-2">
-                      <AlertTriangle size={14} /> You do not have enough coins to bid on this player.
+                  {isBudgetInsufficient && !isHighestBidder && (
+                    <div className="bg-accent-amber/5 border border-accent-amber/20 rounded-xl p-3 text-xs text-accent-amber flex items-center gap-2">
+                      <AlertTriangle size={14} /> Low budget ({ownerTeam?.remainingBudget ?? 0} coins). You can still try — the server will validate.
                     </div>
                   )}
 
-                  {/* Preset increments 2x2 grid */}
+                  {/* Preset bid buttons: Min / +50 / +100 / +200 */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {presets.map((p) => {
-                      const isDisabled = isBidDisabled || (ownerTeam ? ownerTeam.remainingBudget < p.value : false);
+                      const canAfford = !ownerTeam || ownerTeam.remainingBudget >= p.value;
+                      const isDisabled = isBidDisabled;
                       return (
                         <button
-                          key={p.value}
+                          key={p.label}
                           disabled={isDisabled}
                           onClick={() => placeBid(p.value)}
-                          className="flex flex-col items-center justify-center rounded-xl border border-border bg-background py-3.5 hover:border-accent-blue transition-all disabled:opacity-40 disabled:hover:border-border disabled:cursor-not-allowed group"
+                          className={`flex flex-col items-center justify-center rounded-xl border py-3.5 transition-all group ${
+                            isDisabled
+                              ? "opacity-40 cursor-not-allowed border-border bg-background"
+                              : canAfford
+                              ? "border-border bg-background hover:border-accent-amber hover:bg-accent-amber/5 cursor-pointer"
+                              : "border-accent-red/30 bg-accent-red/5 cursor-pointer opacity-70"
+                          }`}
                         >
-                          <span className="text-[10px] text-text-secondary group-hover:text-text-primary transition-colors">
-                            {p.label.startsWith("+") ? `Inc ${p.label}` : "Bid Min"}
+                          <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                            !canAfford ? "text-accent-red" : "text-text-muted group-hover:text-accent-amber"
+                          }`}>
+                            {p.label}
                           </span>
-                          <span className="font-display text-lg font-black text-text-primary mt-1">
+                          <span className="font-display text-xl font-black text-text-primary mt-0.5 flex items-center gap-0.5">
+                            <Coins size={13} className={canAfford ? "text-accent-amber" : "text-accent-red"} />
                             {p.value}
                           </span>
+                          {!canAfford && (
+                            <span className="text-[9px] text-accent-red mt-0.5">Low budget</span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
 
-                  {/* Custom Bid input field */}
-                  <form onSubmit={handleCustomBidSubmit} className="flex gap-2">
-                    <input
-                      type="number"
-                      min={minRequiredBid}
-                      value={customBid}
-                      onChange={(e) => setCustomBid(e.target.value)}
-                      disabled={isBidDisabled}
-                      placeholder={`Enter custom bid (Min: ${minRequiredBid})...`}
-                      className="flex-1 bg-background border border-border text-text-primary text-sm rounded-xl px-4 py-3.5 outline-none focus:border-accent-blue disabled:opacity-50"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isBidDisabled || !customBid}
-                      className="bg-accent-blue hover:bg-accent-blue/80 text-white font-bold px-6 py-3.5 rounded-xl transition-all disabled:opacity-50 disabled:hover:bg-accent-blue"
-                    >
-                      Bid
-                    </button>
-                  </form>
+                  {/* Custom Bid input */}
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-2">
+                      Custom Bid Amount
+                    </p>
+                    <form onSubmit={handleCustomBidSubmit} className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Coins size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-accent-amber" />
+                        <input
+                          type="number"
+                          min={minRequiredBid}
+                          value={customBid}
+                          onChange={(e) => setCustomBid(e.target.value)}
+                          disabled={isBidDisabled}
+                          placeholder={`Min: ${minRequiredBid} coins`}
+                          className="w-full bg-background border border-border text-text-primary text-sm rounded-xl pl-9 pr-4 py-3.5 outline-none focus:border-accent-amber disabled:opacity-50 transition-colors"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isBidDisabled || !customBid}
+                        className="bg-accent-amber hover:bg-accent-amber/80 text-black font-black px-6 py-3.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm uppercase tracking-wide"
+                      >
+                        Bid
+                      </button>
+                    </form>
+                  </div>
                 </div>
               )}
 
@@ -686,85 +953,147 @@ export default function LiveAuctionPage() {
         </div>
       </div>
 
-      {/* SOLD CONFETTI SCREEN OVERLAY */}
+      {/* SOLD OVERLAY — centered card, not full-screen black */}
       <AnimatePresence>
         {soldOverlay && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-md p-4 text-center"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ scale: 0.8, y: 30 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.8, y: 30 }}
-              className="max-w-md w-full flex flex-col items-center"
+              initial={{ scale: 0.85, y: 40, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.85, y: 40, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 280, damping: 22 }}
+              className="relative w-full max-w-sm rounded-3xl border border-accent-amber/40 bg-surface shadow-2xl overflow-hidden flex flex-col items-center text-center p-8"
+              style={{ background: "linear-gradient(160deg, #1a1400 0%, #141414 60%)" }}
             >
-              <span className="text-6xl mb-6">🎉</span>
-              
-              <h2 className="font-display text-xs font-black uppercase tracking-widest text-accent-amber px-4 py-1.5 border border-accent-amber/30 rounded-full bg-accent-amber/10 mb-4 flex items-center gap-1.5">
-                <Sparkles size={14} /> Sold!
-              </h2>
+              {/* Glow */}
+              <div className="absolute inset-x-0 top-0 h-32 opacity-20 blur-[60px] bg-accent-amber pointer-events-none" />
 
-              <h1 className="font-display text-3xl font-black text-text-primary leading-tight max-w-full truncate px-3">
-                {soldOverlay.playerName}
-              </h1>
+              <span className="text-5xl mb-4">🎉</span>
 
-              {/* Player Image if available */}
+              <span className="text-[10px] font-black uppercase tracking-widest text-accent-amber px-3 py-1 border border-accent-amber/30 rounded-full bg-accent-amber/10 flex items-center gap-1 mb-5">
+                <Sparkles size={11} /> SOLD
+              </span>
+
+              {/* Player image */}
               {soldOverlay.playerImage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={soldOverlay.playerImage}
+                  src={
+                    soldOverlay.playerImage.startsWith("http")
+                      ? `/api/image-proxy?url=${encodeURIComponent(soldOverlay.playerImage)}`
+                      : soldOverlay.playerImage
+                  }
                   alt={soldOverlay.playerName}
-                  className="h-28 w-28 rounded-full border-4 border-accent-amber/50 object-cover mt-6 shadow-2xl bg-surface"
+                  className="h-28 w-28 rounded-full border-4 border-accent-amber/60 object-cover shadow-2xl mb-5"
                 />
               )}
 
-              <p className="text-base text-text-secondary mt-6 max-w-xs">
-                Drafted to <span className="font-bold text-text-primary text-lg block mt-1 uppercase text-accent-blue">{soldOverlay.buyerName}</span>
-              </p>
+              <h2 className="font-display text-2xl font-black text-text-primary leading-tight">
+                {soldOverlay.playerName}
+              </h2>
 
-              <div className="bg-surface border border-border rounded-2xl px-6 py-4 mt-6 flex flex-col items-center shadow-lg">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Draft Price</span>
-                <span className="font-display text-3xl font-black text-accent-amber mt-1 flex items-center gap-1.5">
-                  <Coins size={24} /> {soldOverlay.price} coins
+              <p className="text-sm text-text-secondary mt-2">Drafted to</p>
+              <span
+                className="font-display text-xl font-black mt-1 px-4 py-1.5 rounded-full border uppercase"
+                style={{
+                  color: soldOverlay.buyerColor || "#3B82F6",
+                  borderColor: `${soldOverlay.buyerColor || "#3B82F6"}40`,
+                  backgroundColor: `${soldOverlay.buyerColor || "#3B82F6"}15`,
+                }}
+              >
+                {soldOverlay.buyerName}
+              </span>
+
+              <div className="mt-6 bg-background border border-border rounded-2xl px-8 py-4 flex flex-col items-center w-full">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-text-muted">Final Bid</span>
+                <span className="font-display text-4xl font-black text-accent-amber mt-1 flex items-center gap-2">
+                  <Coins size={28} /> {soldOverlay.price}
                 </span>
+                <span className="text-[10px] text-text-muted mt-0.5">coins</span>
               </div>
+
+              <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing for next player…</p>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* UNSOLD SCREEN OVERLAY */}
+      {/* UNSOLD OVERLAY — centered card */}
       <AnimatePresence>
         {unsoldOverlay && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm p-4 text-center"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="max-w-md w-full"
+              initial={{ scale: 0.85, y: 30, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.85, y: 30, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 280, damping: 22 }}
+              className="w-full max-w-sm rounded-3xl border border-border bg-surface shadow-2xl flex flex-col items-center text-center p-8"
             >
-              <span className="text-6xl mb-6">🔇</span>
-              <h2 className="font-display text-xs font-black uppercase tracking-widest text-text-secondary px-4 py-1.5 border border-border rounded-full bg-surface mb-4 inline-block">
-                Passed / Unsold
-              </h2>
-              <h1 className="font-display text-3xl font-black text-text-primary mt-4">
-                {unsoldOverlay}
-              </h1>
-              <p className="text-sm text-text-secondary mt-4">
-                No bids were placed on this player. Player returned to catalog.
+              <span className="text-5xl mb-4">🔇</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary px-3 py-1 border border-border rounded-full bg-surface-elevated inline-block mb-5">
+                No Bids — Passed
+              </span>
+              <h2 className="font-display text-2xl font-black text-text-primary">{unsoldOverlay}</h2>
+              <p className="text-sm text-text-secondary mt-3 max-w-xs">
+                No bids were placed. Player returned to the catalog.
               </p>
+              <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing…</p>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Player Detail Modal */}
+      {detailPlayer && (
+        <PlayerDetailModal
+          player={detailPlayer}
+          onClose={() => setDetailPlayer(null)}
+        />
+      )}
+
+      {/* BID TOAST STACK — bottom-right, visible to everyone */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 items-end pointer-events-none">
+        <AnimatePresence>
+          {bidToasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, x: 60, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 60, scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-2xl backdrop-blur-sm"
+              style={{
+                backgroundColor: `${toast.color}18`,
+                borderColor: `${toast.color}50`,
+              }}
+            >
+              <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: toast.color }} />
+              <div className="flex flex-col leading-tight">
+                <span className="text-xs font-black text-text-primary uppercase tracking-wide">
+                  {toast.teamName}
+                </span>
+                <span className="text-[10px] text-text-secondary">placed a bid</span>
+              </div>
+              <span
+                className="font-display text-lg font-black flex items-center gap-0.5 ml-2"
+                style={{ color: toast.color }}
+              >
+                <Coins size={14} /> {toast.amount}
+              </span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
     </AuthenticatedLayout>
   );

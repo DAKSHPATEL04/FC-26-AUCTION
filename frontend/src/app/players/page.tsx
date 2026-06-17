@@ -8,7 +8,7 @@ import PlayerDetailModal from "@/components/players/PlayerDetail";
 import { Player, PlayerFilters, PlayersResponse } from "@/types/player.types";
 import { useUserStore } from "@/store/userStore";
 import { api } from "@/lib/api";
-import { Loader2, Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { Loader2, ArrowUpDown } from "lucide-react";
 
 export default function PlayersPage() {
   const { user } = useUserStore();
@@ -99,13 +99,6 @@ export default function PlayersPage() {
     fetchPlayers();
   }, [fetchPlayers]);
 
-  // Handle Search Input Submit
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    setFilters((prev) => ({ ...prev, search: searchVal }));
-  };
-
   const handleResetFilters = () => {
     setSearchVal("");
     setPage(1);
@@ -177,67 +170,41 @@ export default function PlayersPage() {
           </div>
         </div>
 
-        {/* Search & Sort Panel */}
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-surface border border-border rounded-xl p-4">
-          <form onSubmit={handleSearchSubmit} className="relative w-full md:w-96">
-            <input
-              type="text"
-              placeholder="Search by name or common name..."
-              value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
-              className="w-full bg-background border border-border text-text-primary text-sm rounded-lg pl-10 pr-4 py-2.5 outline-none focus:border-accent-blue transition-colors"
-            />
-            <Search className="absolute left-3.5 top-3 text-text-secondary h-4 w-4" />
-            {searchVal && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchVal("");
-                  setFilters((prev) => ({ ...prev, search: "" }));
-                }}
-                className="absolute right-3 top-3 text-text-secondary hover:text-text-primary text-xs font-bold"
-              >
-                Clear
-              </button>
-            )}
-          </form>
+        {/* Sort Panel */}
+        <div className="flex flex-wrap gap-3 items-center justify-end bg-surface border border-border rounded-xl p-4">
+          <span className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5 mr-auto">
+            <ArrowUpDown size={14} />
+            Sort By:
+          </span>
+          <select
+            value={filters.sortBy}
+            onChange={(e) => {
+              setPage(1);
+              setFilters((prev) => ({ ...prev, sortBy: e.target.value }));
+            }}
+            className="bg-background border border-border text-text-primary text-xs rounded-lg px-3 py-2 outline-none focus:border-accent-blue"
+          >
+            <option value="rating">Rating</option>
+            <option value="name">Name</option>
+            <option value="pace">Pace</option>
+            <option value="shooting">Shooting</option>
+            <option value="passing">Passing</option>
+            <option value="dribbling">Dribbling</option>
+            <option value="defending">Defending</option>
+            <option value="physical">Physical</option>
+          </select>
 
-          {/* Sort selection */}
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
-              <ArrowUpDown size={14} />
-              Sort By:
-            </span>
-            <select
-              value={filters.sortBy}
-              onChange={(e) => {
-                setPage(1);
-                setFilters((prev) => ({ ...prev, sortBy: e.target.value }));
-              }}
-              className="bg-background border border-border text-text-primary text-xs rounded-lg px-3 py-2 outline-none focus:border-accent-blue"
-            >
-              <option value="rating">Rating</option>
-              <option value="name">Name</option>
-              <option value="pace">Pace</option>
-              <option value="shooting">Shooting</option>
-              <option value="passing">Passing</option>
-              <option value="dribbling">Dribbling</option>
-              <option value="defending">Defending</option>
-              <option value="physical">Physical</option>
-            </select>
-
-            <select
-              value={filters.sortOrder}
-              onChange={(e) => {
-                setPage(1);
-                setFilters((prev) => ({ ...prev, sortOrder: e.target.value as "asc" | "desc" }));
-              }}
-              className="bg-background border border-border text-text-primary text-xs rounded-lg px-3 py-2 outline-none focus:border-accent-blue"
-            >
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </select>
-          </div>
+          <select
+            value={filters.sortOrder}
+            onChange={(e) => {
+              setPage(1);
+              setFilters((prev) => ({ ...prev, sortOrder: e.target.value as "asc" | "desc" }));
+            }}
+            className="bg-background border border-border text-text-primary text-xs rounded-lg px-3 py-2 outline-none focus:border-accent-blue"
+          >
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
         </div>
 
         {/* Main Grid: Left Filters, Right Cards Grid */}
