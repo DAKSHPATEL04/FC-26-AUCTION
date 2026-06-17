@@ -36,6 +36,8 @@ const playerSchema = new mongoose.Schema({
   basePrice: { type: Number, default: 10 },
 });
 
+playerSchema.index({ name: "text", commonName: "text" });
+
 const Player = mongoose.models.Player || mongoose.model("Player", playerSchema);
 
 // Fallback high-quality dataset if FUTDB key is missing
@@ -344,17 +346,130 @@ async function importPlayers() {
       }
       console.log(`Successfully completed FUTDB API import of ${totalImported} players.`);
     } else {
-      console.log("No FUTDB API Key. Seeding high-quality default players...");
-      const bulkOps = fallbackPlayers.map(p => ({
-        updateOne: {
-          filter: { futdbId: p.futdbId },
-          update: { $set: p },
-          upsert: true
-        }
-      }));
+      console.log("No FUTDB API Key. Reading from scripts/male_players.csv...");
+      const fs = require('fs');
+      const csv = require('csv-parser');
+      const path = require('path');
+      const results = [];
+      
+      const csvPath = path.join(__dirname, 'male_players.csv');
+      
+      if (!fs.existsSync(csvPath)) {
+        console.error(`CSV file not found at ${csvPath}`);
+        process.exit(1);
+      }
 
-      await Player.bulkWrite(bulkOps);
-      console.log("Successfully seeded fallback players.");
+      await new Promise((resolve, reject) => {
+        fs.createReadStream(csvPath)
+          .pipe(csv())
+          .on('data', (data) => results.push(data))
+          .on('end', resolve)
+          .on('error', reject);
+      });
+      
+      console.log(`Parsed ${results.length} players from CSV. Importing in batches...`);
+      
+      const BATCH_SIZE = 1000;
+      let totalImported = 0;
+      
+      for (let i = 0; i < results.length; i += BATCH_SIZE) {
+        const batch = results.slice(i, i + BATCH_SIZE);
+        const bulkOps = batch.map(p => {
+          const positions = p.player_positions ? p.player_positions.split(',').map(s => s.trim()) : ['CM'];
+          const position = positions[0] || 'CM';
+          const positionGroup = ["ST", "CF", "LW", "RW", "LF", "RF"].includes(position) ? "FWD" :
+                                ["GK"].includes(position) ? "GK" :
+                                ["CB", "LB", "RB", "LWB", "RWB"].includes(position) ? "DEF" : "MID";
+          
+          let playStyles = [];
+          if (p.player_tags) {
+            playStyles = playStyles.concat(p.player_tags.split(',').map(s => s.trim().replace(/^#/, '')));
+          }
+          if (p.player_traits) {
+            playStyles = playStyles.concat(p.player_traits.split(',').map(s => s.trim()));
+          }
+          
+          const rating = parseInt(p.overall, 10) || 0;
+          let basePrice = 10;
+          if (rating >= 90) basePrice = 50;
+          else if (rating >= 85) basePrice = 35;
+          else if (rating >= 80) basePrice = 20;
+          
+          return {
+            updateOne: {
+              filter: { futdbId: parseInt(p.player_id, 10) },
+              update: { $set: {
+                futdbId: parseInt(p.player_id, 10),
+                name: p.long_name || p.short_name,
+                commonName: p.short_name || "",
+                image: p.player_face_url || "",
+                nation: p.nationality_name || "",
+                nationFlag: "", 
+                club: p.club_name || "",
+                clubLogo: "", 
+                league: p.league_name || "",
+                position: position,
+                positionGroup: positionGroup,
+                rating: rating,
+                age: parseInt(p.age, 10) || 0,
+                height: parseInt(p.height_cm, 10) || 0,
+                weight: parseInt(p.weight_kg, 10) || 0,
+                preferredFoot: p.preferred_foot || "Right",
+                weakFoot: parseInt(p.weak_foot, 10) || 1,
+                skillMoves: parseInt(p.skill_moves, 10) || 1,
+                pace: parseInt(p.pace, 10) || 0,
+                acceleration: parseInt(p.movement_acceleration, 10) || 0,
+                sprintSpeed: parseInt(p.movement_sprint_speed, 10) || 0,
+
+                shooting: parseInt(p.shooting, 10) || 0,
+                positioning: parseInt(p.mentality_positioning, 10) || 0,
+                finishing: parseInt(p.attacking_finishing, 10) || 0,
+                shotPower: parseInt(p.power_shot_power, 10) || 0,
+                longShots: parseInt(p.power_long_shots, 10) || 0,
+                volleys: parseInt(p.attacking_volleys, 10) || 0,
+                penalties: parseInt(p.mentality_penalties, 10) || 0,
+
+                passing: parseInt(p.passing, 10) || 0,
+                vision: parseInt(p.mentality_vision, 10) || 0,
+                crossing: parseInt(p.attacking_crossing, 10) || 0,
+                freeKickAccuracy: parseInt(p.skill_fk_accuracy, 10) || 0,
+                shortPassing: parseInt(p.attacking_short_passing, 10) || 0,
+                longPassing: parseInt(p.skill_long_passing, 10) || 0,
+                curve: parseInt(p.skill_curve, 10) || 0,
+
+                dribbling: parseInt(p.dribbling, 10) || 0,
+                agility: parseInt(p.movement_agility, 10) || 0,
+                balance: parseInt(p.movement_balance, 10) || 0,
+                reactions: parseInt(p.movement_reactions, 10) || 0,
+                ballControl: parseInt(p.skill_ball_control, 10) || 0,
+                composure: parseInt(p.mentality_composure, 10) || 0,
+
+                defending: parseInt(p.defending, 10) || 0,
+                interceptions: parseInt(p.mentality_interceptions, 10) || 0,
+                headingAccuracy: parseInt(p.attacking_heading_accuracy, 10) || 0,
+                defAwareness: parseInt(p.defending_marking_awareness, 10) || 0,
+                standingTackle: parseInt(p.defending_standing_tackle, 10) || 0,
+                slidingTackle: parseInt(p.defending_sliding_tackle, 10) || 0,
+
+                physical: parseInt(p.physic, 10) || 0,
+                jumping: parseInt(p.power_jumping, 10) || 0,
+                stamina: parseInt(p.power_stamina, 10) || 0,
+                strength: parseInt(p.power_strength, 10) || 0,
+                aggression: parseInt(p.mentality_aggression, 10) || 0,
+                playStyles: playStyles,
+                basePrice: basePrice
+              } },
+              upsert: true
+            }
+          };
+        });
+        
+        await Player.bulkWrite(bulkOps);
+        totalImported += batch.length;
+        console.log(`Upserted ${batch.length} players. Total imported: ${totalImported}`);
+      }
+      
+      console.log(`Successfully seeded ${totalImported} players from CSV.`);
     }
   } catch (err) {
     console.error("Error importing players:", err.message);

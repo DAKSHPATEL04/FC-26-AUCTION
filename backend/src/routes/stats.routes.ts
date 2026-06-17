@@ -11,25 +11,31 @@ const router = Router();
 // GET /api/stats - Live statistics overview
 router.get("/", async (req, res) => {
   try {
-    const [teams, totalPlayers, soldPlayers, unsoldPlayers] = await Promise.all([
+    const [teams, totalPlayers, soldPlayers, unsoldPlayers, playersInPool] = await Promise.all([
       Team.find().populate("players").lean(),
       Player.countDocuments(),
       Player.countDocuments({ status: "sold" }),
       Player.countDocuments({ status: "unsold" }),
+      Player.countDocuments({ status: "pool" }),
     ]);
 
+    let totalRemainingBudget = 0;
+
     // Format individual team metrics
-    const teamStats = teams.map((t: any) => ({
-      _id: t._id,
-      teamName: t.teamName,
-      color: t.color || "#3B82F6",
-      remainingBudget: t.remainingBudget,
-      totalBudget: t.totalBudget,
-      spent: t.totalBudget - t.remainingBudget,
-      squadSize: t.players?.length || 0,
-      teamValue: t.teamValue || 0,
-      avgRating: t.avgRating || 0,
-    }));
+    const teamStats = teams.map((t: any) => {
+      totalRemainingBudget += t.remainingBudget || 0;
+      return {
+        _id: t._id,
+        teamName: t.teamName,
+        color: t.color || "#3B82F6",
+        remainingBudget: t.remainingBudget,
+        totalBudget: t.totalBudget,
+        spent: t.totalBudget - t.remainingBudget,
+        squadSize: t.players?.length || 0,
+        teamValue: t.teamValue || 0,
+        avgRating: t.avgRating || 0,
+      };
+    });
 
     // Top 5 expensive players
     const expensivePlayers = await Player.find({ status: "sold" })
@@ -45,7 +51,9 @@ router.get("/", async (req, res) => {
         totalPlayers,
         soldPlayers,
         unsoldPlayers,
-        availablePlayers: totalPlayers - soldPlayers - unsoldPlayers,
+        playersInPool,
+        totalRemainingBudget,
+        availablePlayers: totalPlayers - soldPlayers - unsoldPlayers - playersInPool,
       },
       expensivePlayers,
     });
