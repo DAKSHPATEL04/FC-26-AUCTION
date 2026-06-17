@@ -152,9 +152,9 @@ export default function HistoryPage() {
                         </td>
                         <td className="py-4 px-4">
                           {player.soldTo ? (
-                            <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: player.soldTo.color || "#3B82F6" }}>
-                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: player.soldTo.color || "#3B82F6" }} />
-                              {player.soldTo.teamName}
+                            <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: (player.soldTo as any).color || "#3B82F6" }}>
+                              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: (player.soldTo as any).color || "#3B82F6" }} />
+                              {(player.soldTo as any).teamName}
                             </span>
                           ) : (
                             <span className="text-text-muted font-medium">Unassigned</span>
