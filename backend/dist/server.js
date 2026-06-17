@@ -14,6 +14,7 @@ const player_routes_js_1 = __importDefault(require("./routes/player.routes.js"))
 const watchlist_routes_js_1 = __importDefault(require("./routes/watchlist.routes.js"));
 const team_routes_js_1 = __importDefault(require("./routes/team.routes.js"));
 const stats_routes_js_1 = __importDefault(require("./routes/stats.routes.js"));
+const image_routes_js_1 = __importDefault(require("./routes/image.routes.js"));
 const auction_socket_js_1 = require("./socket/auction.socket.js");
 // Load environment variables
 dotenv_1.default.config();
@@ -22,7 +23,7 @@ const server = http_1.default.createServer(app);
 // Initialize Socket.IO
 const io = new socket_io_1.Server(server, {
     cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:4000",
+        origin: process.env.FRONTEND_URL || "http://localhost:3000",
         credentials: true,
     }
 });
@@ -31,8 +32,16 @@ const PORT = process.env.PORT || 4000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/fc26auction";
 // Middleware
 app.use((0, cors_1.default)({
-    origin: process.env.FRONTEND_URL || "http://localhost:4000",
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+}));
+app.options("*", (0, cors_1.default)({
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
 }));
 app.use(express_1.default.json());
 // Routes
@@ -41,6 +50,7 @@ app.use("/api/players", player_routes_js_1.default);
 app.use("/api/watchlist", watchlist_routes_js_1.default);
 app.use("/api/teams", team_routes_js_1.default);
 app.use("/api/stats", stats_routes_js_1.default);
+app.use("/api/image-proxy", image_routes_js_1.default);
 // Health Check
 app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "FC 26 Auction Platform Backend is active" });

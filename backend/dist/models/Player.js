@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Player = void 0;
 const mongoose_1 = require("mongoose");
 const playerSchema = new mongoose_1.Schema({
+    sofifaId: { type: Number, unique: true, sparse: true, index: true },
     futdbId: { type: Number, unique: true, sparse: true, index: true },
     name: { type: String, required: true },
     commonName: { type: String, default: "" },
