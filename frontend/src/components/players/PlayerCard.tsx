@@ -70,7 +70,7 @@ export default function PlayerCard({
       {/* Status badge */}
       <div className="absolute top-3 right-3">
         <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${STATUS_STYLES[player.status]}`}>
-          {player.status === "sold" && player.soldTo?.teamName
+          {player.status === "sold" && player.soldTo && typeof player.soldTo === "object" && player.soldTo.teamName
             ? player.soldTo.teamName.slice(0, 8)
             : player.status}
         </span>
