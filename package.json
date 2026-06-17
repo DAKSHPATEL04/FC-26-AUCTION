@@ -6,6 +6,8 @@
   "scripts": {
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd backend && npm install && npm run build",
+    "start": "cd backend && npm start",
     "seed:players": "node scripts/importPlayers.js",
     "seed:admin": "node scripts/createAdmin.js",
     "seed": "node scripts/createAdmin.js && node scripts/importPlayers.js",
