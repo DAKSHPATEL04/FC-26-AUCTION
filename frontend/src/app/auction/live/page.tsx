@@ -198,8 +198,7 @@ export default function LiveAuctionPage() {
       setTimeout(() => setErrorMsg(null), 3500);
     });
 
-    newSocket.on("auction:sold_broadcast", (data) => {
-      // Show overlay immediately (backend fires this BEFORE clearing state)
+    newSocket.on("auction:sold_broadcast", (data: any) => {
       setSoldOverlay(data);
       if (soundEnabledRef.current && soldSoundRef.current) {
         soldSoundRef.current.play().catch(() => {});
@@ -220,6 +219,8 @@ export default function LiveAuctionPage() {
         buyerColor: data.buyerColor,
       });
 
+      toast.success(`${data.playerName} sold to ${data.buyerName} for ${data.price} coins!`, { duration: 6000, icon: '🎉' });
+
       // Refresh owner team budget + squad — first immediately, then again after DB settles
       fetchOwnerTeamRef.current();
       setTimeout(() => fetchOwnerTeamRef.current(), 1500);
@@ -230,6 +231,7 @@ export default function LiveAuctionPage() {
 
     newSocket.on("auction:unsold_broadcast", (data) => {
       setUnsoldOverlay(data.playerName);
+      toast(`${data.playerName} went unsold and returned to catalog.`, { duration: 6000, icon: '🔇' });
       // Clear unsold overlay after 3 seconds
       setTimeout(() => setUnsoldOverlay(null), 3000);
       fetchOwnerTeamRef.current();
@@ -998,22 +1000,16 @@ export default function LiveAuctionPage() {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.85, y: 30, opacity: 0 }}
               transition={{ type: "spring", stiffness: 280, damping: 22 }}
-              className="relative w-full max-w-sm rounded-3xl border border-accent-amber/40 bg-surface shadow-2xl flex flex-col items-center text-center p-8"
+              className="w-full max-w-sm rounded-3xl border border-border bg-surface shadow-2xl flex flex-col items-center text-center p-8"
             >
               <span className="text-5xl mb-4">🎉</span>
-
-              <span className="text-[10px] font-black uppercase tracking-widest text-accent-amber px-3 py-1 border border-accent-amber/30 rounded-full bg-accent-amber/10 inline-flex items-center gap-1 mb-5">
-                <Sparkles size={11} /> SOLD
+              <span className="text-[10px] font-black uppercase tracking-widest text-accent-amber px-3 py-1 border border-accent-amber/30 rounded-full bg-accent-amber/10 inline-block mb-5">
+                Player Sold
               </span>
-
-              <h2 className="font-display text-2xl font-black text-text-primary">
-                {soldOverlay.playerName}
-              </h2>
-
+              <h2 className="font-display text-2xl font-black text-text-primary">{soldOverlay.playerName}</h2>
               <p className="text-sm text-text-secondary mt-3 max-w-xs">
-                Drafted to <span style={{color: soldOverlay.buyerColor || "#3B82F6"}} className="font-bold">{soldOverlay.buyerName}</span> for <span className="font-bold text-accent-amber">{soldOverlay.price} coins</span>. Player added to the squad.
+                Sold to <span style={{color: soldOverlay.buyerColor || "#3B82F6"}} className="font-bold">{soldOverlay.buyerName}</span> for <span className="font-bold text-accent-amber">{soldOverlay.price} coins</span>. Player added to the squad.
               </p>
-
               <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing…</p>
             </motion.div>
           </motion.div>
