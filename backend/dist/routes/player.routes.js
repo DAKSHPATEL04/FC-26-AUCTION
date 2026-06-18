@@ -156,4 +156,51 @@ router.put("/pool/order", auth_middleware_js_1.authenticateJWT, (0, auth_middlew
 router.post("/import", auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_1.requireRole)(["admin"]), async (req, res) => {
     res.json({ message: "Run node scripts/importPlayers.js manually from the backend directory to import players." });
 });
+// PUT /api/players/:id - Admin: Edit player details
+router.put("/:id", auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_1.requireRole)(["admin"]), async (req, res) => {
+    try {
+        const { status, basePrice, name, commonName, rating, position, pace, shooting, passing, dribbling, defending, physical } = req.body;
+        const player = await Player_js_1.Player.findById(req.params.id);
+        if (!player) {
+            return res.status(404).json({ message: "Player not found" });
+        }
+        // Only allow specific fields to be updated
+        if (status !== undefined) {
+            player.status = status;
+            // If status changes away from pool, clear auctionPoolOrder
+            if (status !== "pool") {
+                player.auctionPoolOrder = null;
+            }
+        }
+        if (basePrice !== undefined)
+            player.basePrice = basePrice;
+        if (name !== undefined)
+            player.name = name;
+        if (commonName !== undefined)
+            player.commonName = commonName;
+        if (rating !== undefined)
+            player.rating = rating;
+        if (position !== undefined)
+            player.position = position;
+        if (pace !== undefined)
+            player.pace = pace;
+        if (shooting !== undefined)
+            player.shooting = shooting;
+        if (passing !== undefined)
+            player.passing = passing;
+        if (dribbling !== undefined)
+            player.dribbling = dribbling;
+        if (defending !== undefined)
+            player.defending = defending;
+        if (physical !== undefined)
+            player.physical = physical;
+        await player.save();
+        // Return populated player
+        const updatedPlayer = await Player_js_1.Player.findById(req.params.id).populate("soldTo", "teamName logo color");
+        res.json({ message: "Player updated successfully", player: updatedPlayer });
+    }
+    catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
 exports.default = router;
