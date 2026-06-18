@@ -476,8 +476,11 @@ async function handleSoldTransition() {
     // 3rd: Broadcast the cleared state so all clients update the stage
     broadcastState();
 
-  } catch (err) {
+  } catch (err: any) {
     console.error("Failed to complete SOLD transition:", err);
+    if (ioInstance) {
+      ioInstance.emit("auction:error", err.message || "Failed to complete SOLD transition");
+    }
     // On error, still clear to avoid stuck state
     state.currentPlayer = null;
     state.currentBid = 0;
