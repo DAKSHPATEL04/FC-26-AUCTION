@@ -1014,12 +1014,12 @@ export default function LiveAuctionPage() {
               className="w-full max-w-sm rounded-3xl border border-border bg-surface shadow-2xl flex flex-col items-center text-center p-8"
             >
               <span className="text-5xl mb-4">🎉</span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-accent-amber px-3 py-1 border border-accent-amber/30 rounded-full bg-accent-amber/10 inline-block mb-5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary px-3 py-1 border border-border rounded-full bg-surface-elevated inline-block mb-5">
                 Player Sold
               </span>
               <h2 className="font-display text-2xl font-black text-text-primary">{soldOverlay.playerName}</h2>
               <p className="text-sm text-text-secondary mt-3 max-w-xs">
-                Sold to <span style={{color: soldOverlay.buyerColor || "#3B82F6"}} className="font-bold">{soldOverlay.buyerName}</span> for <span className="font-bold text-accent-amber">{soldOverlay.price} coins</span>. Player added to the squad.
+                Sold to {soldOverlay.buyerName} for {soldOverlay.price} coins. Player added to the squad.
               </p>
               <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing…</p>
             </motion.div>
