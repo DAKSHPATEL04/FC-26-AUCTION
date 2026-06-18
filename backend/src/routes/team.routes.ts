@@ -4,6 +4,7 @@ import { Team } from "../models/Team.js";
 import { User } from "../models/User.js";
 import { Season } from "../models/Season.js";
 import { Player } from "../models/Player.js";
+import { BidHistory } from "../models/BidHistory.js";
 import { authenticateJWT, requireRole, AuthRequest } from "../middleware/auth.middleware.js";
 
 const router = Router();
@@ -143,6 +144,53 @@ router.delete("/:id", authenticateJWT as any, requireRole(["admin"]) as any, asy
     await Team.deleteOne({ _id: team._id });
 
     res.json({ message: "Team deleted successfully and players released" });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/teams/:teamId/players/:playerId - Admin: Remove player from team
+router.delete("/:teamId/players/:playerId", authenticateJWT as any, requireRole(["admin"]) as any, async (req: AuthRequest, res: Response) => {
+  try {
+    const { teamId, playerId } = req.params;
+    
+    const team = await Team.findById(teamId);
+    if (!team) return res.status(404).json({ message: "Team not found" });
+
+    const player = await Player.findById(playerId);
+    if (!player) return res.status(404).json({ message: "Player not found" });
+
+    // Check if player is actually in this team
+    if (!team.players.includes(player._id)) {
+      return res.status(400).json({ message: "Player is not in this team's squad" });
+    }
+
+    // Refund and remove
+    const refundPrice = player.soldPrice || 0;
+    team.players = team.players.filter((id) => id.toString() !== playerId);
+    team.remainingBudget += refundPrice;
+    team.squadSize = team.players.length;
+
+    // Recalculate team stats
+    const draftedPlayers = await Player.find({ _id: { $in: team.players } });
+    team.teamValue = draftedPlayers.reduce((sum, p) => sum + (p.soldPrice || 0), 0);
+    team.avgRating = draftedPlayers.length > 0 
+      ? draftedPlayers.reduce((sum, p) => sum + p.rating, 0) / draftedPlayers.length 
+      : 0;
+
+    await team.save();
+
+    // Reset Player
+    player.status = "pool";
+    player.soldTo = null;
+    player.soldPrice = null;
+    player.soldAt = null;
+    await player.save();
+
+    // Remove Winning Bid from BidHistory
+    await BidHistory.deleteOne({ playerId: player._id, isWinningBid: true });
+
+    res.json({ message: "Player removed from squad and refunded successfully." });
   } catch (err: any) {
     res.status(500).json({ message: err.message });
   }

@@ -31,6 +31,7 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Player Database", href: "/players", icon: Users },
     { name: "Team Management", href: "/teams", icon: Shield },
+    { name: "Manage Squads", href: "/admin/squads", icon: Users },
     { name: "Auction Pool", href: "/auction-pool", icon: Layers },
     { name: "Live Auction", href: "/auction/live", icon: Tv2 },
     { name: "Statistics", href: "/statistics", icon: BarChart3 },

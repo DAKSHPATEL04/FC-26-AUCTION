@@ -21,6 +21,7 @@ export default function TopNav() {
     { name: "Dashboard", href: "/dashboard" },
     { name: "Players", href: "/players" },
     { name: "Teams", href: "/teams" },
+    { name: "Manage Squads", href: "/admin/squads" },
     { name: "Auction Pool", href: "/auction-pool" },
     { name: "Live Auction", href: "/auction/live" },
     { name: "Statistics", href: "/statistics" },
