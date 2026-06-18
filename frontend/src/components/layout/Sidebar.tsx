@@ -34,7 +34,6 @@ export default function Sidebar() {
     { name: "Manage Squads", href: "/admin/squads", icon: Users },
     { name: "Auction Pool", href: "/auction-pool", icon: Layers },
     { name: "Live Auction", href: "/auction/live", icon: Tv2 },
-    { name: "Statistics", href: "/statistics", icon: BarChart3 },
     { name: "History", href: "/history", icon: History },
     { name: "Export Summary", href: "/export", icon: Download },
   ];
