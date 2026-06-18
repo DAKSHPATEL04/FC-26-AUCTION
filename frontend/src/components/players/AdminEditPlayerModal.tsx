@@ -180,7 +180,7 @@ export default function AdminEditPlayerModal({ player, onClose, onSave }: AdminE
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-semibold text-text-secondary">Preferred Foot</label>
-                  <select value={preferredFoot} onChange={e => setPreferredFoot(e.target.value)} className="bg-background border border-border rounded-lg px-3 py-2 text-text-primary focus:border-accent-blue outline-none">
+                  <select value={preferredFoot} onChange={e => setPreferredFoot(e.target.value as "Right" | "Left")} className="bg-background border border-border rounded-lg px-3 py-2 text-text-primary focus:border-accent-blue outline-none">
                     <option value="Right">Right</option>
                     <option value="Left">Left</option>
                   </select>
