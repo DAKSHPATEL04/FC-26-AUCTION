@@ -210,7 +210,11 @@ export default function LiveAuctionPage() {
     });
 
     newSocket.on("auction:sold_broadcast", (data: any) => {
+      alert("DEBUG: Received auction:sold_broadcast! Player: " + data.playerName);
+      console.log("RECEIVED SOLD BROADCAST", data);
+      
       setSoldOverlay(data);
+      overlayActiveRef.current = true;
       if (soundEnabledRef.current && soldSoundRef.current) {
         soldSoundRef.current.play().catch(() => {});
       }
