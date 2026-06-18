@@ -183,7 +183,7 @@ router.post("/import", authenticateJWT as any, requireRole(["admin"]) as any, as
 // PUT /api/players/:id - Admin: Edit player details
 router.put("/:id", authenticateJWT as any, requireRole(["admin"]) as any, async (req: AuthRequest, res: Response) => {
   try {
-    const { status, basePrice, name, commonName, rating, position, pace, shooting, passing, dribbling, defending, physical } = req.body;
+    const { status, basePrice, name, commonName, rating, position, pace, shooting, passing, dribbling, defending, physical, weakFoot, skillMoves, preferredFoot, height, weight } = req.body;
     
     const player = await Player.findById(req.params.id);
     if (!player) {
@@ -209,6 +209,11 @@ router.put("/:id", authenticateJWT as any, requireRole(["admin"]) as any, async 
     if (dribbling !== undefined) player.dribbling = dribbling;
     if (defending !== undefined) player.defending = defending;
     if (physical !== undefined) player.physical = physical;
+    if (weakFoot !== undefined) player.weakFoot = weakFoot;
+    if (skillMoves !== undefined) player.skillMoves = skillMoves;
+    if (preferredFoot !== undefined) player.preferredFoot = preferredFoot;
+    if (height !== undefined) player.height = height;
+    if (weight !== undefined) player.weight = weight;
 
     await player.save();
     

@@ -159,7 +159,7 @@ router.post("/import", auth_middleware_js_1.authenticateJWT, (0, auth_middleware
 // PUT /api/players/:id - Admin: Edit player details
 router.put("/:id", auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_1.requireRole)(["admin"]), async (req, res) => {
     try {
-        const { status, basePrice, name, commonName, rating, position, pace, shooting, passing, dribbling, defending, physical } = req.body;
+        const { status, basePrice, name, commonName, rating, position, pace, shooting, passing, dribbling, defending, physical, weakFoot, skillMoves, preferredFoot, height, weight } = req.body;
         const player = await Player_js_1.Player.findById(req.params.id);
         if (!player) {
             return res.status(404).json({ message: "Player not found" });
@@ -194,6 +194,16 @@ router.put("/:id", auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_
             player.defending = defending;
         if (physical !== undefined)
             player.physical = physical;
+        if (weakFoot !== undefined)
+            player.weakFoot = weakFoot;
+        if (skillMoves !== undefined)
+            player.skillMoves = skillMoves;
+        if (preferredFoot !== undefined)
+            player.preferredFoot = preferredFoot;
+        if (height !== undefined)
+            player.height = height;
+        if (weight !== undefined)
+            player.weight = weight;
         await player.save();
         // Return populated player
         const updatedPlayer = await Player_js_1.Player.findById(req.params.id).populate("soldTo", "teamName logo color");
