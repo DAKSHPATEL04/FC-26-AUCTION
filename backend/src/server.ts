@@ -65,7 +65,7 @@ mongoose
   .connect(MONGODB_URI)
   .then(() => {
     console.log("Connected to MongoDB Atlas / Local successfully.");
-    server.listen(Number(PORT), "0.0.0.0", () => {
+    server.listen(PORT, () => {
       console.log(`Backend Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
     });
   })

@@ -335,6 +335,16 @@ export default function PlayersPage() {
           onClose={() => setSelectedPlayer(null)}
           onAddToPool={() => handleAddToPool(selectedPlayer)}
           onAddToWatchlist={() => handleAddToWatchlist(selectedPlayer)}
+          onPlayerUpdated={(updatedPlayer) => {
+            setPlayersData((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                players: prev.players.map(p => p._id === updatedPlayer._id ? updatedPlayer : p)
+              };
+            });
+            setSelectedPlayer(updatedPlayer);
+          }}
         />
       )}
     </AuthenticatedLayout>

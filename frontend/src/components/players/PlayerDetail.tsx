@@ -1,8 +1,10 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Star, Footprints, Info } from "lucide-react";
+import { X, Star, Footprints, Info, Edit } from "lucide-react";
 import { Player } from "@/types/player.types";
+import { useState } from "react";
+import AdminEditPlayerModal from "./AdminEditPlayerModal";
 
 interface PlayerDetailModalProps {
   player: Player;
@@ -10,6 +12,7 @@ interface PlayerDetailModalProps {
   onAddToPool?: () => void;
   onAddToWatchlist?: () => void;
   isAdmin?: boolean;
+  onPlayerUpdated?: (updatedPlayer: Player) => void;
 }
 
 const getStatColor = (val: number) => {
@@ -76,14 +79,25 @@ function StarRating({ value }: { value: number }) {
 }
 
 export default function PlayerDetailModal({
-  player,
+  player: initialPlayer,
   onClose,
   onAddToPool,
   onAddToWatchlist,
   isAdmin,
+  onPlayerUpdated,
 }: PlayerDetailModalProps) {
+  const [player, setPlayer] = useState(initialPlayer);
+  const [isEditing, setIsEditing] = useState(false);
+
   const cardStyle = getCardStyle(player.rating);
   const lastName = player.commonName || player.name.split(' ').pop() || player.name;
+
+  const handlePlayerSave = (updatedPlayer: Player) => {
+    setPlayer(updatedPlayer);
+    if (onPlayerUpdated) {
+      onPlayerUpdated(updatedPlayer);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -266,6 +280,11 @@ export default function PlayerDetailModal({
                   Remove from Pool
                 </button>
               )}
+              {isAdmin && (
+                <button onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none bg-blue-500/10 border border-blue-500 hover:bg-blue-500/20 text-blue-500 px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                  <Edit size={16} /> Edit Player
+                </button>
+              )}
               {!isAdmin && onAddToWatchlist && (
                 <button onClick={onAddToWatchlist} className="flex-1 sm:flex-none bg-blue-500/10 border border-blue-500 hover:bg-blue-500/20 text-blue-500 px-6 py-2.5 rounded-lg font-bold text-sm transition-colors">
                   + Watchlist
@@ -279,6 +298,14 @@ export default function PlayerDetailModal({
 
         </motion.div>
       </motion.div>
+
+      {isEditing && (
+        <AdminEditPlayerModal
+          player={player}
+          onClose={() => setIsEditing(false)}
+          onSave={handlePlayerSave}
+        />
+      )}
     </AnimatePresence>
   );
 }
