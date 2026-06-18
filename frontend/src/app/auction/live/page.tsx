@@ -1017,21 +1017,61 @@ export default function LiveAuctionPage() {
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ scale: 0.85, y: 30, opacity: 0 }}
+              initial={{ scale: 0.85, y: 40, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.85, y: 30, opacity: 0 }}
+              exit={{ scale: 0.85, y: 40, opacity: 0 }}
               transition={{ type: "spring", stiffness: 280, damping: 22 }}
-              className="w-full max-w-sm rounded-3xl border border-border bg-surface shadow-2xl flex flex-col items-center text-center p-8"
+              className="relative w-full max-w-sm rounded-3xl border border-accent-amber/40 bg-surface shadow-2xl overflow-hidden flex flex-col items-center text-center p-8"
+              style={{ background: "linear-gradient(160deg, #1a1400 0%, #141414 60%)" }}
             >
+              {/* Glow */}
+              <div className="absolute inset-x-0 top-0 h-32 opacity-20 blur-[60px] bg-accent-amber pointer-events-none" />
+
               <span className="text-5xl mb-4">🎉</span>
-              <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary px-3 py-1 border border-border rounded-full bg-surface-elevated inline-block mb-5">
-                Player Sold
+
+              <span className="text-[10px] font-black uppercase tracking-widest text-accent-amber px-3 py-1 border border-accent-amber/30 rounded-full bg-accent-amber/10 flex items-center gap-1 mb-5">
+                <Sparkles size={11} /> SOLD
               </span>
-              <h2 className="font-display text-2xl font-black text-text-primary">{soldOverlay.playerName}</h2>
-              <p className="text-sm text-text-secondary mt-3 max-w-xs">
-                Sold to {soldOverlay.buyerName} for {soldOverlay.price} coins. Player added to the squad.
-              </p>
-              <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing…</p>
+
+              {/* Player image */}
+              {soldOverlay.playerImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={
+                    soldOverlay.playerImage.startsWith("http")
+                      ? `/api/image-proxy?url=${encodeURIComponent(soldOverlay.playerImage)}`
+                      : soldOverlay.playerImage
+                  }
+                  alt={soldOverlay.playerName}
+                  className="h-28 w-28 rounded-full border-4 border-accent-amber/60 object-cover shadow-2xl mb-5"
+                />
+              )}
+
+              <h2 className="font-display text-2xl font-black text-text-primary leading-tight">
+                {soldOverlay.playerName}
+              </h2>
+
+              <p className="text-sm text-text-secondary mt-2">Drafted to</p>
+              <span
+                className="font-display text-xl font-black mt-1 px-4 py-1.5 rounded-full border uppercase"
+                style={{
+                  color: soldOverlay.buyerColor || "#3B82F6",
+                  borderColor: `${soldOverlay.buyerColor || "#3B82F6"}40`,
+                  backgroundColor: `${soldOverlay.buyerColor || "#3B82F6"}15`,
+                }}
+              >
+                {soldOverlay.buyerName}
+              </span>
+
+              <div className="mt-6 bg-background border border-border rounded-2xl px-8 py-4 flex flex-col items-center w-full">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-text-muted">Final Bid</span>
+                <span className="font-display text-4xl font-black text-accent-amber mt-1 flex items-center gap-2">
+                  <Coins size={28} /> {soldOverlay.price}
+                </span>
+                <span className="text-[10px] text-text-muted mt-0.5">coins</span>
+              </div>
+
+              <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing for next player…</p>
             </motion.div>
           </motion.div>
         )}
