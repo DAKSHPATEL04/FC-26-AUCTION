@@ -166,12 +166,12 @@ export default function LiveAuctionPage() {
 
     // Socket Event Listeners
     newSocket.on("auction:state", (data: any) => {
-      if (!data.currentPlayer && overlayActiveRef.current) {
-        // Do not clear the current player immediately if an overlay is showing.
-        // We will clear it when the overlay timeout finishes.
-      } else {
-        setCurrentPlayer(data.currentPlayer);
+      // If a sold/unsold overlay is showing, ignore ALL state updates
+      // to prevent the stage from clearing while the overlay is visible
+      if (overlayActiveRef.current) {
+        return;
       }
+      setCurrentPlayer(data.currentPlayer);
       setCurrentBid(data.currentBid);
       setHighestBidder(data.highestBidder);
       setTimer(data.timer);
@@ -246,6 +246,7 @@ export default function LiveAuctionPage() {
 
       // Auto-close overlay after 6 seconds and clear stage
       setTimeout(() => {
+        overlayActiveRef.current = false;
         setSoldOverlay(null);
         setCurrentPlayer(null);
       }, 6000);
