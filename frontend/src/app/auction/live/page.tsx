@@ -171,6 +171,45 @@ export default function LiveAuctionPage() {
       if (overlayActiveRef.current) {
         return;
       }
+
+      // Detect timer expiry with a highest bidder: show sold overlay IMMEDIATELY
+      // without waiting for auction:sold_broadcast (which may be delayed by DB ops)
+      if (
+        data.timer <= 0 &&
+        data.status === "bidding" &&
+        data.highestBidder &&
+        data.currentPlayer
+      ) {
+        overlayActiveRef.current = true;
+        setSoldOverlay({
+          playerName: data.currentPlayer.commonName || data.currentPlayer.name || "Player",
+          buyerName: data.highestBidder.teamName || "Unknown Team",
+          price: data.currentBid,
+          playerImage: data.currentPlayer.image || "",
+          buyerColor: data.highestBidder.color || "#3B82F6",
+        });
+        setLastSale({
+          playerName: data.currentPlayer.commonName || data.currentPlayer.name,
+          buyerName: data.highestBidder.teamName,
+          price: data.currentBid,
+          playerImage: data.currentPlayer.image,
+          buyerColor: data.highestBidder.color,
+        });
+        toast.success(
+          `${data.currentPlayer.commonName || data.currentPlayer.name} sold to ${data.highestBidder.teamName} for ${data.currentBid} coins!`,
+          { duration: 6000, icon: "🎉" }
+        );
+        setTimeout(() => {
+          overlayActiveRef.current = false;
+          setSoldOverlay(null);
+          setCurrentPlayer(null);
+        }, 6000);
+        // Still update non-stage states
+        setTimer(data.timer);
+        setStatus(data.status);
+        return;
+      }
+
       setCurrentPlayer(data.currentPlayer);
       setCurrentBid(data.currentBid);
       setHighestBidder(data.highestBidder);
