@@ -210,11 +210,11 @@ export default function LiveAuctionPage() {
     });
 
     newSocket.on("auction:sold_broadcast", (data: any) => {
-      alert("DEBUG: Received auction:sold_broadcast! Player: " + data.playerName);
       console.log("RECEIVED SOLD BROADCAST", data);
       
-      setSoldOverlay(data);
+      // Set ref FIRST before any state updates so auction:state handler sees it immediately
       overlayActiveRef.current = true;
+      setSoldOverlay(data);
       if (soundEnabledRef.current && soldSoundRef.current) {
         soldSoundRef.current.play().catch(() => {});
       }
@@ -329,6 +329,23 @@ export default function LiveAuctionPage() {
 
   const markSold = () => {
     if (confirm(`Force player sold to ${highestBidder?.teamName} for ${currentBid} coins?`)) {
+      // Show overlay IMMEDIATELY on all clients' screens
+      // Don't wait for server round-trip — show it right now
+      const overlayData = {
+        playerName: currentPlayer?.commonName || currentPlayer?.name || "Player",
+        buyerName: highestBidder?.teamName || "Unknown Team",
+        price: currentBid,
+        playerImage: currentPlayer?.image || "",
+        buyerColor: highestBidder?.color || "#3B82F6",
+      };
+      overlayActiveRef.current = true;
+      setSoldOverlay(overlayData);
+      // Schedule overlay close after 6 seconds
+      setTimeout(() => {
+        setSoldOverlay(null);
+        setCurrentPlayer(null);
+        overlayActiveRef.current = false;
+      }, 6000);
       socket?.emit("admin:sold");
     }
   };
