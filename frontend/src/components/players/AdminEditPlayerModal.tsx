@@ -18,7 +18,6 @@ export default function AdminEditPlayerModal({ player, onClose, onSave }: AdminE
 
   // Form states
   const [status, setStatus] = useState(player.status);
-  const [basePrice, setBasePrice] = useState(player.basePrice || 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +27,6 @@ export default function AdminEditPlayerModal({ player, onClose, onSave }: AdminE
     try {
       const res = await api.put(`/api/players/${player._id}`, {
         status,
-        basePrice,
       });
       onSave(res.data.player);
       onClose();
@@ -95,18 +93,6 @@ export default function AdminEditPlayerModal({ player, onClose, onSave }: AdminE
                 <option value="unsold">Unsold</option>
                 <option value="sold">Sold</option>
               </select>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold text-text-secondary">Base Price</label>
-              <input
-                type="number"
-                min="0"
-                step="100000"
-                value={basePrice}
-                onChange={(e) => setBasePrice(Number(e.target.value))}
-                className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-text-primary focus:border-accent-blue outline-none transition-colors"
-              />
             </div>
 
             <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-border">
