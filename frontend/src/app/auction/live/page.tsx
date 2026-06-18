@@ -94,14 +94,14 @@ export default function LiveAuctionPage() {
   // UI States
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [soldOverlay, setSoldOverlay] = useState<{
-    playerName: string;
-    buyerName: string;
-    price: number;
-    playerImage?: string;
-    buyerColor?: string;
-  } | null>(null);
+  const [soldOverlay, setSoldOverlay] = useState<any>(null);
   const [unsoldOverlay, setUnsoldOverlay] = useState<string | null>(null);
+  const overlayActiveRef = useRef(false);
+
+  useEffect(() => {
+    overlayActiveRef.current = !!(soldOverlay || unsoldOverlay);
+  }, [soldOverlay, unsoldOverlay]);
+
   // Last sale result shown on idle stage
   const [lastSale, setLastSale] = useState<{
     playerName: string;
@@ -165,8 +165,13 @@ export default function LiveAuctionPage() {
     setSocket(newSocket);
 
     // Socket Event Listeners
-    newSocket.on("auction:state", (data) => {
-      setCurrentPlayer(data.currentPlayer);
+    newSocket.on("auction:state", (data: any) => {
+      if (!data.currentPlayer && overlayActiveRef.current) {
+        // Do not clear the current player immediately if an overlay is showing.
+        // We will clear it when the overlay timeout finishes.
+      } else {
+        setCurrentPlayer(data.currentPlayer);
+      }
       setCurrentBid(data.currentBid);
       setHighestBidder(data.highestBidder);
       setTimer(data.timer);
@@ -225,15 +230,21 @@ export default function LiveAuctionPage() {
       fetchOwnerTeamRef.current();
       setTimeout(() => fetchOwnerTeamRef.current(), 1500);
 
-      // Auto-close overlay after 6 seconds
-      setTimeout(() => setSoldOverlay(null), 6000);
+      // Auto-close overlay after 6 seconds and clear stage
+      setTimeout(() => {
+        setSoldOverlay(null);
+        setCurrentPlayer(null);
+      }, 6000);
     });
 
     newSocket.on("auction:unsold_broadcast", (data) => {
       setUnsoldOverlay(data.playerName);
       toast(`${data.playerName} went unsold and returned to catalog.`, { duration: 6000, icon: '🔇' });
-      // Clear unsold overlay after 3 seconds
-      setTimeout(() => setUnsoldOverlay(null), 3000);
+      // Clear unsold overlay after 3 seconds and clear stage
+      setTimeout(() => {
+        setUnsoldOverlay(null);
+        setCurrentPlayer(null);
+      }, 3000);
       fetchOwnerTeamRef.current();
     });
 
