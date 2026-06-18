@@ -1047,8 +1047,6 @@ export default function LiveAuctionPage() {
                       <RotateCcw size={14} /> Undo Last Draft
                     </button>
                   </div>
-
-                  </div>
                 </div>
               )}
 
