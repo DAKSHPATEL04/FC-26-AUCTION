@@ -29,7 +29,7 @@ import {
   Gavel,
   CheckCircle2,
 } from "lucide-react";
-import { toast, confirmAction } from "@/lib/toast";
+import { toast } from "@/lib/toast";
 
 interface SocketPlayer {
   _id: string;
@@ -297,21 +297,21 @@ export default function LiveAuctionPage() {
   };
 
   const markUnsold = () => {
-    confirmAction("Force this player to UNSOLD status?", () => {
+    if (confirm("Force this player to UNSOLD status?")) {
       socket?.emit("admin:unsold");
-    });
+    }
   };
 
   const markSold = () => {
-    confirmAction(`Force player sold to ${highestBidder?.teamName} for ${currentBid} coins?`, () => {
+    if (confirm(`Force player sold to ${highestBidder?.teamName} for ${currentBid} coins?`)) {
       socket?.emit("admin:sold");
-    });
+    }
   };
 
   const undoLastDraft = () => {
-    confirmAction("Are you sure you want to UNDO the last completed draft? This will refund budget and release the player.", () => {
+    if (confirm("Are you sure you want to UNDO the last completed draft? This will refund budget and release the player.")) {
       socket?.emit("admin:undo");
-    });
+    }
   };
 
   const setAuctionTimer = () => {
