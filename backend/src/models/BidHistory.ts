@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 const bidHistorySchema = new Schema(
   {
-    auctionId: { type: Schema.Types.ObjectId, ref: "Auction", required: true, index: true },
+    auctionId: { type: Schema.Types.ObjectId, ref: "Auction", required: false, index: true },
     playerId: { type: Schema.Types.ObjectId, ref: "Player", required: true },
     teamId: { type: Schema.Types.ObjectId, ref: "Team", default: null },
     teamName: { type: String, default: "" },
