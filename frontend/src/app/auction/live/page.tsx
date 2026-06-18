@@ -202,7 +202,15 @@ export default function LiveAuctionPage() {
         setTimeout(() => {
           overlayActiveRef.current = false;
           setSoldOverlay(null);
+          // Force the stage to idle state so no refresh is needed
           setCurrentPlayer(null);
+          setStatus("idle");
+          setHighestBidder(null);
+          setCurrentBid(0);
+          setTimer(0);
+          setBidHistory([]);
+          // Refresh team roster now that DB has had time to update
+          fetchOwnerTeamRef.current();
         }, 6000);
         // Still update non-stage states
         setTimer(data.timer);
@@ -287,7 +295,15 @@ export default function LiveAuctionPage() {
       setTimeout(() => {
         overlayActiveRef.current = false;
         setSoldOverlay(null);
+        // Force the stage to idle state so no refresh is needed
         setCurrentPlayer(null);
+        setStatus("idle");
+        setHighestBidder(null);
+        setCurrentBid(0);
+        setTimer(0);
+        setBidHistory([]);
+        // Refresh team roster now that DB has had time to update
+        fetchOwnerTeamRef.current();
       }, 6000);
     });
 
@@ -382,9 +398,17 @@ export default function LiveAuctionPage() {
       setSoldOverlay(overlayData);
       // Schedule overlay close after 6 seconds
       setTimeout(() => {
-        setSoldOverlay(null);
-        setCurrentPlayer(null);
         overlayActiveRef.current = false;
+        setSoldOverlay(null);
+        // Force the stage to idle state so no refresh is needed
+        setCurrentPlayer(null);
+        setStatus("idle");
+        setHighestBidder(null);
+        setCurrentBid(0);
+        setTimer(0);
+        setBidHistory([]);
+        // Refresh team roster now that DB has had time to update
+        fetchOwnerTeamRef.current();
       }, 6000);
       socket?.emit("admin:sold");
     }
