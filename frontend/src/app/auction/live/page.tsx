@@ -501,7 +501,26 @@ export default function LiveAuctionPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Admin Timer Control at the top */}
+            {isAdmin && (
+              <div className="flex items-center gap-2 bg-surface border border-border p-1.5 rounded-xl">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary px-2">Timer (s)</span>
+                <input 
+                  type="number" 
+                  value={adminTimerInput} 
+                  onChange={(e) => setAdminTimerInput(e.target.value)} 
+                  className="bg-background border border-border rounded-md px-2 py-1.5 text-text-primary focus:border-accent-blue outline-none w-16 text-center text-xs"
+                />
+                <button 
+                  onClick={setAuctionTimer}
+                  className="bg-accent-blue hover:bg-accent-blue/80 text-white px-3 py-1.5 rounded-md text-xs font-bold transition-colors"
+                >
+                  Set
+                </button>
+              </div>
+            )}
+
             {/* Audio Toggle */}
             <button
               onClick={() => {
@@ -1029,21 +1048,6 @@ export default function LiveAuctionPage() {
                     </button>
                   </div>
 
-                  {/* Timer Control */}
-                  <div className="flex items-center gap-2 mt-2 pt-4 border-t border-border">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary w-24">Set Timer (s)</span>
-                    <input 
-                      type="number" 
-                      value={adminTimerInput} 
-                      onChange={(e) => setAdminTimerInput(e.target.value)} 
-                      className="bg-background border border-border rounded-lg px-3 py-2 text-text-primary focus:border-accent-blue outline-none w-24 text-center text-sm"
-                    />
-                    <button 
-                      onClick={setAuctionTimer}
-                      className="bg-surface-elevated hover:bg-border text-text-primary px-4 py-2 rounded-lg text-xs font-bold transition-colors border border-border"
-                    >
-                      Apply
-                    </button>
                   </div>
                 </div>
               )}
@@ -1066,9 +1070,9 @@ export default function LiveAuctionPage() {
               ) : (
                 <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                   <AnimatePresence>
-                    {bidHistory.map((bid, index) => (
+                    {[...bidHistory].reverse().map((bid, index) => (
                       <motion.div
-                        key={bid.timestamp.toString() + index}
+                        key={bid.timestamp.toString() + '-' + bid.amount}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-background"
