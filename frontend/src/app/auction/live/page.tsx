@@ -318,12 +318,12 @@ export default function LiveAuctionPage() {
   const basePrice = currentPlayer?.basePrice || 10;
   const minRequiredBid = highestBidder ? currentBid + minBidIncrement : basePrice;
 
-  // Fixed preset increments: bid at min, min+5000, min+10000, min+15000
+  // Fixed preset increments: bid at currentBid + 5000, 10000, 15000, 20000
   const presets = [
-    { label: "Min Bid",  value: minRequiredBid },
-    { label: "+5000",    value: minRequiredBid + 5000 },
-    { label: "+10000",   value: minRequiredBid + 10000 },
-    { label: "+15000",   value: minRequiredBid + 15000 },
+    { label: "+5000",    value: currentBid + 5000 },
+    { label: "+10000",   value: currentBid + 10000 },
+    { label: "+15000",   value: currentBid + 15000 },
+    { label: "+20000",   value: currentBid + 20000 },
   ];
 
   // Colors based on positions
