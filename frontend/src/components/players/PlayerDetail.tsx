@@ -270,7 +270,7 @@ export default function PlayerDetailModal({
             </div>
 
             <div className="flex gap-3 w-full sm:w-auto">
-              {isAdmin && player.status === "available" && onAddToPool && (
+              {/* {isAdmin && player.status === "available" && onAddToPool && (
                 <button onClick={onAddToPool} className="flex-1 sm:flex-none bg-[#EAB308] hover:bg-[#CA8A04] text-black px-6 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-lg">
                   + Add to Pool
                 </button>
@@ -279,7 +279,7 @@ export default function PlayerDetailModal({
                 <button onClick={onAddToPool} className="flex-1 sm:flex-none bg-red-500/10 border border-red-500 hover:bg-red-500/20 text-red-500 px-6 py-2.5 rounded-lg font-bold text-sm transition-colors">
                   Remove from Pool
                 </button>
-              )}
+              )} */}
               {isAdmin && (
                 <button onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none bg-blue-500/10 border border-blue-500 hover:bg-blue-500/20 text-blue-500 px-6 py-2.5 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2">
                   <Edit size={16} /> Edit Player
