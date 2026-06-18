@@ -288,7 +288,11 @@ export function initAuctionSocket(io: Server) {
     // Force Sold transition
     socket.on("admin:sold", async () => {
       if (socket.data.user.role !== "admin") return;
-      if (!state.currentPlayer || !state.highestBidder) return;
+      if (!state.currentPlayer) return;
+      if (!state.highestBidder) {
+        socket.emit("auction:error", "Cannot mark sold: No bids have been placed! Use 'Mark Unsold' instead.");
+        return;
+      }
 
       await handleSoldTransition();
     });

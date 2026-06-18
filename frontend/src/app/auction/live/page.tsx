@@ -203,17 +203,27 @@ export default function LiveAuctionPage() {
       setTimeout(() => setErrorMsg(null), 3500);
     });
 
+    newSocket.on("auction:error", (msg: string) => {
+      toast.error(msg);
+      setErrorMsg(msg);
+      setTimeout(() => setErrorMsg(null), 3000);
+    });
+
     newSocket.on("auction:sold_broadcast", (data: any) => {
       setSoldOverlay(data);
       if (soundEnabledRef.current && soldSoundRef.current) {
         soldSoundRef.current.play().catch(() => {});
       }
       // Fire confetti!
-      confetti({
-        particleCount: 150,
-        spread: 80,
-        origin: { y: 0.6 },
-      });
+      try {
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+        });
+      } catch (e) {
+        console.error("Confetti error", e);
+      }
 
       // Save as last sale result (shown on idle stage after overlay closes)
       setLastSale({
