@@ -110,6 +110,8 @@ export default function LiveAuctionPage() {
   
   // Custom Bid Input
   const [customBid, setCustomBid] = useState("");
+  // Admin Timer Control
+  const [adminTimerInput, setAdminTimerInput] = useState("30");
   // Player detail modal
   const [detailPlayer, setDetailPlayer] = useState<Player | null>(null);
   // Bid toast notifications
@@ -305,16 +307,23 @@ export default function LiveAuctionPage() {
     }
   };
 
+  const setAuctionTimer = () => {
+    const val = parseInt(adminTimerInput);
+    if (!isNaN(val) && val > 0) {
+      socket?.emit("admin:set_timer", { duration: val });
+    }
+  };
+
   // Bid Button validations
   const basePrice = currentPlayer?.basePrice || 10;
   const minRequiredBid = highestBidder ? currentBid + minBidIncrement : basePrice;
 
-  // Fixed preset increments: bid at min, min+50, min+100, min+200
+  // Fixed preset increments: bid at min, min+5000, min+10000, min+15000
   const presets = [
     { label: "Min Bid",  value: minRequiredBid },
-    { label: "+50",      value: minRequiredBid + 50 },
-    { label: "+100",     value: minRequiredBid + 100 },
-    { label: "+200",     value: minRequiredBid + 200 },
+    { label: "+5000",    value: minRequiredBid + 5000 },
+    { label: "+10000",   value: minRequiredBid + 10000 },
+    { label: "+15000",   value: minRequiredBid + 15000 },
   ];
 
   // Colors based on positions
@@ -904,6 +913,23 @@ export default function LiveAuctionPage() {
                       className="flex items-center justify-center gap-2 border border-border bg-background hover:bg-surface-elevated py-3 rounded-xl text-xs font-bold transition-all"
                     >
                       <RotateCcw size={14} /> Undo Last Draft
+                    </button>
+                  </div>
+
+                  {/* Timer Control */}
+                  <div className="flex items-center gap-2 mt-2 pt-4 border-t border-border">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary w-24">Set Timer (s)</span>
+                    <input 
+                      type="number" 
+                      value={adminTimerInput} 
+                      onChange={(e) => setAdminTimerInput(e.target.value)} 
+                      className="bg-background border border-border rounded-lg px-3 py-2 text-text-primary focus:border-accent-blue outline-none w-24 text-center text-sm"
+                    />
+                    <button 
+                      onClick={setAuctionTimer}
+                      className="bg-surface-elevated hover:bg-border text-text-primary px-4 py-2 rounded-lg text-xs font-bold transition-colors border border-border"
+                    >
+                      Apply
                     </button>
                   </div>
                 </div>

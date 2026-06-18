@@ -179,7 +179,7 @@ function initAuctionSocket(io) {
                 state.highestBidder = null;
                 state.bidHistory = [];
                 state.status = "idle";
-                state.timer = 30; // default initial timer
+                state.timer = state.maxTimer; // Use maxTimer
                 broadcastState();
             }
             catch (err) {
@@ -193,7 +193,7 @@ function initAuctionSocket(io) {
             if (!state.currentPlayer || state.status === "bidding")
                 return;
             state.status = "bidding";
-            state.timer = 30;
+            state.timer = state.maxTimer;
             transitionInProgress = false;
             startCountdown();
             broadcastState();
@@ -217,6 +217,15 @@ function initAuctionSocket(io) {
                 return;
             state.status = "bidding";
             startCountdown();
+            broadcastState();
+        });
+        // Set custom timer
+        socket.on("admin:set_timer", (data) => {
+            if (socket.data.user.role !== "admin")
+                return;
+            const newTimer = Math.max(1, data.duration);
+            state.maxTimer = newTimer;
+            state.timer = newTimer;
             broadcastState();
         });
         // Force Unsold transition
@@ -277,7 +286,7 @@ function initAuctionSocket(io) {
                 state.highestBidder = null;
                 state.bidHistory = [];
                 state.status = "idle";
-                state.timer = 30;
+                state.timer = state.maxTimer;
                 if (timerInterval)
                     clearInterval(timerInterval);
                 broadcastState();
