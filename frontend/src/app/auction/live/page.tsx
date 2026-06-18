@@ -26,7 +26,10 @@ import {
   Sparkles,
   Eye,
   Loader2,
+  Gavel,
+  CheckCircle2,
 } from "lucide-react";
+import { toast, confirmAction } from "@/lib/toast";
 
 interface SocketPlayer {
   _id: string;
@@ -233,7 +236,9 @@ export default function LiveAuctionPage() {
     });
 
     newSocket.on("auction:undo_broadcast", (data) => {
-      alert(`Admin undid the draft for player: ${data.playerName}`);
+      if (data.teamName && user?.role !== "admin") {
+        toast.success(`Admin undid the draft for player: ${data.playerName}`);
+      }
       fetchOwnerTeamRef.current();
     });
 
@@ -290,21 +295,21 @@ export default function LiveAuctionPage() {
   };
 
   const markUnsold = () => {
-    if (confirm("Force this player to UNSOLD status?")) {
+    confirmAction("Force this player to UNSOLD status?", () => {
       socket?.emit("admin:unsold");
-    }
+    });
   };
 
   const markSold = () => {
-    if (confirm(`Force player sold to ${highestBidder?.teamName} for ${currentBid} coins?`)) {
+    confirmAction(`Force player sold to ${highestBidder?.teamName} for ${currentBid} coins?`, () => {
       socket?.emit("admin:sold");
-    }
+    });
   };
 
   const undoLastDraft = () => {
-    if (confirm("Are you sure you want to UNDO the last completed draft? This will refund budget and release the player.")) {
+    confirmAction("Are you sure you want to UNDO the last completed draft? This will refund budget and release the player.", () => {
       socket?.emit("admin:undo");
-    }
+    });
   };
 
   const setAuctionTimer = () => {
@@ -1023,25 +1028,9 @@ export default function LiveAuctionPage() {
                 {soldOverlay.playerName}
               </h2>
 
-              <p className="text-sm text-text-secondary mt-2">Drafted to</p>
-              <span
-                className="font-display text-xl font-black mt-1 px-4 py-1.5 rounded-full border uppercase"
-                style={{
-                  color: soldOverlay.buyerColor || "#3B82F6",
-                  borderColor: `${soldOverlay.buyerColor || "#3B82F6"}40`,
-                  backgroundColor: `${soldOverlay.buyerColor || "#3B82F6"}15`,
-                }}
-              >
-                {soldOverlay.buyerName}
-              </span>
-
-              <div className="mt-6 bg-background border border-border rounded-2xl px-8 py-4 flex flex-col items-center w-full">
-                <span className="text-[10px] uppercase font-bold tracking-widest text-text-muted">Final Bid</span>
-                <span className="font-display text-4xl font-black text-accent-amber mt-1 flex items-center gap-2">
-                  <Coins size={28} /> {soldOverlay.price}
-                </span>
-                <span className="text-[10px] text-text-muted mt-0.5">coins</span>
-              </div>
+              <p className="text-sm text-text-secondary mt-3 max-w-xs">
+                Successfully drafted to <span style={{color: soldOverlay.buyerColor || "#3B82F6"}} className="font-bold">{soldOverlay.buyerName}</span> for <span className="font-bold text-accent-amber">{soldOverlay.price} coins</span>. Player added to the squad.
+              </p>
 
               <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing for next player…</p>
             </motion.div>

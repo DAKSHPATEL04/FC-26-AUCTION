@@ -6,7 +6,8 @@ import PlayerCard from "@/components/players/PlayerCard";
 import PlayerDetailModal from "@/components/players/PlayerDetail";
 import { Player } from "@/types/player.types";
 import { api } from "@/lib/api";
-import { Loader2, Bookmark, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, TrendingUp, Loader2, ArrowRight, Bookmark } from "lucide-react";
+import { toast } from "@/lib/toast";
 
 export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState<Player[]>([]);
@@ -42,8 +43,10 @@ export default function WatchlistPage() {
       if (selectedPlayer?._id === player._id) {
         setSelectedPlayer(null);
       }
+      fetchWatchlist();
+      toast.success("Player removed from watchlist.");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to remove player from watchlist.");
+      toast.error(err.response?.data?.message || "Failed to remove player from watchlist.");
     }
   };
 

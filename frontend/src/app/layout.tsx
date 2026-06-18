@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta-sans",
@@ -34,6 +35,16 @@ export default function RootLayout({
         className="min-h-full bg-background text-text-primary font-sans flex flex-col"
         suppressHydrationWarning
       >
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              background: '#1A1A1A',
+              color: '#EEEEEE',
+              border: '1px solid #333',
+            },
+          }}
+        />
         {children}
       </body>
     </html>

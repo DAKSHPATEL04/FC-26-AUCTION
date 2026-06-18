@@ -6,6 +6,7 @@ import { useUserStore } from "@/store/userStore";
 import { api } from "@/lib/api";
 import { Player } from "@/types/player.types";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "@/lib/toast";
 import {
   GripVertical,
   Plus,
@@ -96,8 +97,9 @@ export default function AuctionPoolPage() {
       
       // Re-fetch pool queue to get correct sequence and details
       fetchPoolQueue();
+      toast.success("Player added to the auction pool!");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to add player to pool.");
+      toast.error(err.response?.data?.message || "Failed to add player to pool.");
     }
   };
 
@@ -111,8 +113,9 @@ export default function AuctionPoolPage() {
       
       // Re-fetch available players list
       fetchAvailablePlayers();
+      toast.success("Player removed from the auction pool!");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to remove player from pool.");
+      toast.error(err.response?.data?.message || "Failed to remove player from pool.");
     }
   };
 
@@ -147,9 +150,10 @@ export default function AuctionPoolPage() {
       // Show success badge temporarily
       setOrderSavedBadge(true);
       setTimeout(() => setOrderSavedBadge(false), 2000);
+      toast.success("Pool order saved successfully!");
     } catch (err) {
       console.error("Failed to save pool order:", err);
-      alert("Failed to save pool order in backend.");
+      toast.error("Failed to save pool order in backend.");
     } finally {
       setSavingOrder(false);
     }

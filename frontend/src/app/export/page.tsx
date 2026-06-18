@@ -3,6 +3,7 @@
 import { useState } from "react";
 import AuthenticatedLayout from "@/components/layout/AuthenticatedLayout";
 import { Download, FileSpreadsheet, FileText, Loader2, Sparkles, ShieldAlert } from "lucide-react";
+import { toast } from "@/lib/toast";
 
 export default function ExportPage() {
   const [downloadingCsv, setDownloadingCsv] = useState(false);
@@ -13,9 +14,10 @@ export default function ExportPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       window.open(`${apiUrl}/api/stats/export/csv`, "_blank");
+      toast.success("Exported CSV successfully.");
     } catch (err) {
       console.error(err);
-      alert("Failed to trigger CSV export.");
+      toast.error("Failed to trigger CSV export.");
     } finally {
       setTimeout(() => setDownloadingCsv(false), 2000);
     }
@@ -26,9 +28,10 @@ export default function ExportPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
       window.open(`${apiUrl}/api/stats/export/pdf`, "_blank");
+      toast.success("Exported PDF successfully.");
     } catch (err) {
       console.error(err);
-      alert("Failed to trigger PDF export.");
+      toast.error("Failed to trigger PDF export.");
     } finally {
       setTimeout(() => setDownloadingPdf(false), 2000);
     }

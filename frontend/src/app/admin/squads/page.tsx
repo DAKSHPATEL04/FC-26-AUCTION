@@ -6,6 +6,7 @@ import { useUserStore } from "@/store/userStore";
 import { api } from "@/lib/api";
 import { Player } from "@/types/player.types";
 import { Shield, Coins, Users, Star, Sparkles, Loader2, Trash2 } from "lucide-react";
+import { toast, confirmAction } from "@/lib/toast";
 
 interface TeamData {
   _id: string;
@@ -52,18 +53,16 @@ export default function AdminSquadsPage() {
   }, [isAdmin, fetchTeams]);
 
   const handleRemovePlayer = async (teamId: string, playerId: string, playerName: string) => {
-    if (!confirm(`Are you sure you want to remove ${playerName} from this squad? Their draft price will be refunded.`)) {
-      return;
-    }
-    
-    try {
-      await api.delete(`/api/teams/${teamId}/players/${playerId}`);
-      // Refresh teams data after deletion
-      fetchTeams();
-      alert("Player successfully removed and budget refunded.");
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to remove player.");
-    }
+    confirmAction(`Are you sure you want to remove ${playerName} from this squad? Their draft price will be refunded.`, async () => {
+      try {
+        await api.delete(`/api/teams/${teamId}/players/${playerId}`);
+        // Refresh teams data after deletion
+        fetchTeams();
+        toast.success("Player successfully removed and budget refunded.");
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || "Failed to remove player.");
+      }
+    });
   };
 
   if (!isAdmin) {

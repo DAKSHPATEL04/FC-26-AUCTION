@@ -5,6 +5,7 @@ import AuthenticatedLayout from "@/components/layout/AuthenticatedLayout";
 import PlayerCard from "@/components/players/PlayerCard";
 import PlayerFiltersPanel from "@/components/players/PlayerFilters";
 import PlayerDetailModal from "@/components/players/PlayerDetail";
+import { toast } from "@/lib/toast";
 import { Player, PlayerFilters, PlayersResponse } from "@/types/player.types";
 import { useUserStore } from "@/store/userStore";
 import { api } from "@/lib/api";
@@ -140,8 +141,9 @@ export default function PlayersPage() {
         }
         return prev;
       });
+      toast.success("Player updated in auction pool.");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to update player pool status.");
+      toast.error(err.response?.data?.message || "Failed to update player pool status.");
     }
   };
 
@@ -149,9 +151,9 @@ export default function PlayersPage() {
     try {
       // Toggle watchlist on the backend
       const res = await api.post("/api/watchlist/toggle", { playerId: player._id });
-      alert(res.data.message || "Watchlist updated successfully.");
+      toast.success(res.data.message || "Watchlist updated successfully.");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to update watchlist.");
+      toast.error(err.response?.data?.message || "Failed to update watchlist.");
     }
   };
 

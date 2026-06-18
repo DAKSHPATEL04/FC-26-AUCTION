@@ -19,6 +19,7 @@ import {
   Calendar,
   Sparkles,
 } from "lucide-react";
+import { toast, confirmAction } from "@/lib/toast";
 
 interface TeamData {
   _id: string;
@@ -143,22 +144,23 @@ export default function TeamsPage() {
       setIsDrawerOpen(false);
       fetchTeams();
       fetchOwners(); // Refresh owners assignment status
+      toast.success(drawerMode === "create" ? "Team created successfully!" : "Team updated successfully!");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to save team.");
+      toast.error(err.response?.data?.message || "Failed to save team.");
     }
   };
 
   const handleDeleteTeam = async (teamId: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"? Drafted players will be released back to the player database.`)) {
-      return;
-    }
-    try {
-      await api.delete(`/api/teams/${teamId}`);
-      fetchTeams();
-      fetchOwners();
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete team.");
-    }
+    confirmAction(`Are you sure you want to delete "${name}"? Drafted players will be released back to the player database.`, async () => {
+      try {
+        await api.delete(`/api/teams/${teamId}`);
+        fetchTeams();
+        fetchOwners();
+        toast.success("Team deleted successfully.");
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || "Failed to delete team.");
+      }
+    });
   };
 
   return (
