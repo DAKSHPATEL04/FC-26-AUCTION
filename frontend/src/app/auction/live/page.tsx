@@ -29,7 +29,7 @@ import {
   Gavel,
   CheckCircle2,
 } from "lucide-react";
-import { toast } from "@/lib/toast";
+import { toast, confirmAction } from "@/lib/toast";
 
 interface SocketPlayer {
   _id: string;
@@ -378,46 +378,52 @@ export default function LiveAuctionPage() {
   };
 
   const markUnsold = () => {
-    if (confirm("Force this player to UNSOLD status?")) {
+    confirmAction("Force this player to UNSOLD status?", () => {
       socket?.emit("admin:unsold");
-    }
+    });
   };
 
   const markSold = () => {
-    if (confirm(`Force player sold to ${highestBidder?.teamName} for ${currentBid} coins?`)) {
-      // Show overlay IMMEDIATELY on all clients' screens
-      // Don't wait for server round-trip — show it right now
-      const overlayData = {
-        playerName: currentPlayer?.commonName || currentPlayer?.name || "Player",
-        buyerName: highestBidder?.teamName || "Unknown Team",
-        price: currentBid,
-        playerImage: currentPlayer?.image || "",
-        buyerColor: highestBidder?.color || "#3B82F6",
-      };
-      overlayActiveRef.current = true;
-      setSoldOverlay(overlayData);
-      // Schedule overlay close after 6 seconds
-      setTimeout(() => {
-        overlayActiveRef.current = false;
-        setSoldOverlay(null);
-        // Force the stage to idle state so no refresh is needed
-        setCurrentPlayer(null);
-        setStatus("idle");
-        setHighestBidder(null);
-        setCurrentBid(0);
-        setTimer(0);
-        setBidHistory([]);
-        // Refresh team roster now that DB has had time to update
-        fetchOwnerTeamRef.current();
-      }, 6000);
-      socket?.emit("admin:sold");
-    }
+    confirmAction(
+      `Force player sold to ${highestBidder?.teamName} for ${currentBid} coins?`,
+      () => {
+        // Show overlay IMMEDIATELY on all clients' screens
+        // Don't wait for server round-trip — show it right now
+        const overlayData = {
+          playerName: currentPlayer?.commonName || currentPlayer?.name || "Player",
+          buyerName: highestBidder?.teamName || "Unknown Team",
+          price: currentBid,
+          playerImage: currentPlayer?.image || "",
+          buyerColor: highestBidder?.color || "#3B82F6",
+        };
+        overlayActiveRef.current = true;
+        setSoldOverlay(overlayData);
+        // Schedule overlay close after 6 seconds
+        setTimeout(() => {
+          overlayActiveRef.current = false;
+          setSoldOverlay(null);
+          // Force the stage to idle state so no refresh is needed
+          setCurrentPlayer(null);
+          setStatus("idle");
+          setHighestBidder(null);
+          setCurrentBid(0);
+          setTimer(0);
+          setBidHistory([]);
+          // Refresh team roster now that DB has had time to update
+          fetchOwnerTeamRef.current();
+        }, 6000);
+        socket?.emit("admin:sold");
+      }
+    );
   };
 
   const undoLastDraft = () => {
-    if (confirm("Are you sure you want to UNDO the last completed draft? This will refund budget and release the player.")) {
-      socket?.emit("admin:undo");
-    }
+    confirmAction(
+      "Are you sure you want to UNDO the last completed draft? This will refund budget and release the player.",
+      () => {
+        socket?.emit("admin:undo");
+      }
+    );
   };
 
   const setAuctionTimer = () => {
