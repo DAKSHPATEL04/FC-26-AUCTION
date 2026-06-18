@@ -47,10 +47,8 @@ export default function AdminSquadsPage() {
   }, [selectedTeamId]);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchTeams();
-    }
-  }, [isAdmin, fetchTeams]);
+    fetchTeams();
+  }, [fetchTeams]);
 
   const handleRemovePlayer = async (teamId: string, playerId: string, playerName: string) => {
     confirmAction(`Are you sure you want to remove ${playerName} from this squad? Their draft price will be refunded.`, async () => {
@@ -65,19 +63,6 @@ export default function AdminSquadsPage() {
     });
   };
 
-  if (!isAdmin) {
-    return (
-      <AuthenticatedLayout>
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Shield size={48} className="text-accent-red mb-4" />
-          <h2 className="font-display text-2xl font-bold text-text-primary">Access Denied</h2>
-          <p className="text-sm text-text-secondary mt-2">
-            You do not have permission to view this page.
-          </p>
-        </div>
-      </AuthenticatedLayout>
-    );
-  }
 
   const selectedTeam = teams.find(t => t._id === selectedTeamId) || null;
 
@@ -87,10 +72,10 @@ export default function AdminSquadsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-extrabold tracking-tight text-text-primary flex items-center gap-2">
-              <Shield className="text-accent-blue" /> Manage Squads
+              <Shield className="text-accent-blue" /> {isAdmin ? "Manage Squads" : "All Squads"}
             </h1>
             <p className="text-sm text-text-secondary">
-              View all team rosters and manage mistaken drafts.
+              View all team rosters{isAdmin ? " and manage mistaken drafts" : ""}.
             </p>
           </div>
           
@@ -263,16 +248,18 @@ export default function AdminSquadsPage() {
                           <p className="text-sm font-black text-accent-amber">{p.soldPrice || p.basePrice || 10}</p>
                         </div>
 
-                        {/* Delete Action (Shows on hover) */}
-                        <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-surface to-transparent flex items-center justify-end pr-3 opacity-0 translate-x-4 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 z-20">
-                           <button 
-                             onClick={() => handleRemovePlayer(selectedTeam._id, p._id, p.commonName || p.name)}
-                             className="bg-accent-red/10 text-accent-red hover:bg-accent-red hover:text-white p-2.5 rounded-lg transition-colors"
-                             title="Remove player from squad"
-                           >
-                             <Trash2 size={16} />
-                           </button>
-                        </div>
+                        {/* Delete Action (Shows on hover) - Admin Only */}
+                        {isAdmin && (
+                          <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-surface to-transparent flex items-center justify-end pr-3 opacity-0 translate-x-4 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 z-20">
+                             <button 
+                               onClick={() => handleRemovePlayer(selectedTeam._id, p._id, p.commonName || p.name)}
+                               className="bg-accent-red/10 text-accent-red hover:bg-accent-red hover:text-white p-2.5 rounded-lg transition-colors"
+                               title="Remove player from squad"
+                             >
+                               <Trash2 size={16} />
+                             </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

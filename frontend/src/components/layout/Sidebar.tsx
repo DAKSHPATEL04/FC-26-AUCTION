@@ -44,7 +44,9 @@ export default function Sidebar() {
     { name: "Players List", href: "/players", icon: Users },
     { name: "Watchlist", href: "/watchlist", icon: BarChart3 },
     { name: "My Squad", href: "/squad", icon: Shield },
+    { name: "All Squads", href: "/admin/squads", icon: Users },
     { name: "Live Auction", href: "/auction/live", icon: Tv2 },
+    { name: "Export Summary", href: "/export", icon: Download },
   ];
 
   const links = user?.role === "admin" ? adminLinks : ownerLinks;
