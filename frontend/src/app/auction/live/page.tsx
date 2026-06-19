@@ -28,6 +28,7 @@ import {
   Loader2,
   Gavel,
   CheckCircle2,
+  User,
 } from "lucide-react";
 import { toast, confirmAction } from "@/lib/toast";
 
@@ -187,6 +188,10 @@ export default function LiveAuctionPage() {
           price: data.currentBid,
           playerImage: data.currentPlayer.image || "",
           buyerColor: data.highestBidder.color || "#3B82F6",
+          rating: data.currentPlayer.rating,
+          position: data.currentPlayer.position,
+          club: data.currentPlayer.club,
+          nation: data.currentPlayer.nation,
         });
         setLastSale({
           playerName: data.currentPlayer.commonName || data.currentPlayer.name,
@@ -1114,57 +1119,84 @@ export default function LiveAuctionPage() {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.85, y: 40, opacity: 0 }}
               transition={{ type: "spring", stiffness: 280, damping: 22 }}
-              className="relative w-full max-w-sm rounded-3xl border border-accent-amber/40 bg-surface shadow-2xl overflow-hidden flex flex-col items-center text-center p-8"
+              className="relative w-full max-w-lg rounded-[2.5rem] border border-accent-amber/40 bg-surface shadow-2xl overflow-hidden flex flex-col items-center text-center p-10"
               style={{ background: "linear-gradient(160deg, #1a1400 0%, #141414 60%)" }}
             >
               {/* Glow */}
-              <div className="absolute inset-x-0 top-0 h-32 opacity-20 blur-[60px] bg-accent-amber pointer-events-none" />
+              <div className="absolute inset-x-0 top-0 h-40 opacity-20 blur-[80px] bg-accent-amber pointer-events-none" />
 
-              <span className="text-5xl mb-4">🎉</span>
+              <span className="text-6xl mb-4 animate-bounce">🎉</span>
 
-              <span className="text-[10px] font-black uppercase tracking-widest text-accent-amber px-3 py-1 border border-accent-amber/30 rounded-full bg-accent-amber/10 flex items-center gap-1 mb-5">
-                <Sparkles size={11} /> SOLD
+              <span className="text-xs font-black uppercase tracking-widest text-accent-amber px-4 py-1.5 border border-accent-amber/30 rounded-full bg-accent-amber/10 flex items-center gap-1.5 mb-6">
+                <Sparkles size={14} /> SOLD
               </span>
 
-              {/* Player image */}
-              {soldOverlay.playerImage && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={
-                    soldOverlay.playerImage.startsWith("http")
-                      ? `/api/image-proxy?url=${encodeURIComponent(soldOverlay.playerImage)}`
-                      : soldOverlay.playerImage
-                  }
-                  alt={soldOverlay.playerName}
-                  className="h-28 w-28 rounded-full border-4 border-accent-amber/60 object-cover shadow-2xl mb-5"
-                />
-              )}
+              <div className="relative mb-6">
+                {/* Player image */}
+                {soldOverlay.playerImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={
+                      soldOverlay.playerImage.startsWith("http")
+                        ? `/api/image-proxy?url=${encodeURIComponent(soldOverlay.playerImage)}`
+                        : soldOverlay.playerImage
+                    }
+                    alt={soldOverlay.playerName}
+                    className="h-40 w-40 rounded-full border-[5px] border-accent-amber/80 object-cover shadow-[0_0_40px_rgba(245,158,11,0.3)] bg-surface relative z-10"
+                  />
+                ) : (
+                  <div className="h-40 w-40 rounded-full border-[5px] border-accent-amber/80 bg-surface flex items-center justify-center shadow-[0_0_40px_rgba(245,158,11,0.3)] relative z-10">
+                    <User size={64} className="text-text-muted" />
+                  </div>
+                )}
+                
+                {/* Badge for Rating & Position */}
+                {soldOverlay.rating && soldOverlay.position && (
+                  <div className="absolute -bottom-2 -right-2 bg-background border-2 border-accent-amber/80 h-14 w-14 rounded-full flex flex-col items-center justify-center shadow-lg z-20">
+                    <span className="text-base font-black text-text-primary leading-none">{soldOverlay.rating}</span>
+                    <span className="text-[10px] font-bold text-text-secondary mt-0.5 leading-none">{soldOverlay.position}</span>
+                  </div>
+                )}
+              </div>
 
-              <h2 className="font-display text-2xl font-black text-text-primary leading-tight">
+              <h2 className="font-display text-4xl font-black text-text-primary leading-tight">
                 {soldOverlay.playerName}
               </h2>
+              
+              {(soldOverlay.club || soldOverlay.nation) && (
+                <p className="text-base text-text-secondary mt-2 flex items-center justify-center gap-2 font-medium">
+                  {soldOverlay.club && <span>{soldOverlay.club}</span>}
+                  {soldOverlay.club && soldOverlay.nation && <span className="w-1.5 h-1.5 rounded-full bg-text-muted" />}
+                  {soldOverlay.nation && <span>{soldOverlay.nation}</span>}
+                </p>
+              )}
 
-              <p className="text-sm text-text-secondary mt-2">Drafted to</p>
+              <div className="w-full h-px bg-border my-6 relative">
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center">
+                  <span className="bg-[#141414] px-4 text-xs text-text-muted uppercase tracking-widest font-bold">Drafted To</span>
+                </div>
+              </div>
+
               <span
-                className="font-display text-xl font-black mt-1 px-4 py-1.5 rounded-full border uppercase"
+                className="font-display text-2xl font-black px-6 py-2 rounded-xl border uppercase tracking-wide shadow-lg"
                 style={{
                   color: soldOverlay.buyerColor || "#3B82F6",
-                  borderColor: `${soldOverlay.buyerColor || "#3B82F6"}40`,
+                  borderColor: `${soldOverlay.buyerColor || "#3B82F6"}50`,
                   backgroundColor: `${soldOverlay.buyerColor || "#3B82F6"}15`,
                 }}
               >
                 {soldOverlay.buyerName}
               </span>
 
-              <div className="mt-6 bg-background border border-border rounded-2xl px-8 py-4 flex flex-col items-center w-full">
-                <span className="text-[10px] uppercase font-bold tracking-widest text-text-muted">Final Bid</span>
-                <span className="font-display text-4xl font-black text-accent-amber mt-1 flex items-center gap-2">
-                  <Coins size={28} /> {soldOverlay.price}
+              <div className="mt-8 bg-black/40 border border-accent-amber/30 rounded-2xl px-10 py-5 flex flex-col items-center w-full shadow-inner">
+                <span className="text-xs uppercase font-bold tracking-widest text-accent-amber/80">Final Winning Bid</span>
+                <span className="font-display text-6xl font-black text-accent-amber mt-2 flex items-center justify-center gap-3 drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+                  <Coins size={40} className="text-accent-amber" /> {soldOverlay.price}
                 </span>
-                <span className="text-[10px] text-text-muted mt-0.5">coins</span>
+                <span className="text-sm text-accent-amber/60 mt-1 font-bold">coins</span>
               </div>
 
-              <p className="text-xs text-text-muted mt-5 animate-pulse">Stage clearing for next player…</p>
+              <p className="text-xs text-text-muted mt-6 animate-pulse">Stage clearing for next player…</p>
             </motion.div>
           </motion.div>
         )}

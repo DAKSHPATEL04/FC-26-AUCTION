@@ -439,6 +439,10 @@ async function handleSoldTransition() {
       playerImage: player.image,
       buyerColor,
       teamId,
+      rating: player.rating,
+      position: player.position,
+      club: player.club,
+      nation: player.nation,
     });
 
     // 1. Update Player document
