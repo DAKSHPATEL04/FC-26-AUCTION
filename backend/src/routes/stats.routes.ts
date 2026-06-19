@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { authenticateJWT } from "../middleware/auth.middleware.js";
 import { Team } from "../models/Team.js";
 import { Player } from "../models/Player.js";
 // @ts-ignore
@@ -63,9 +64,20 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/stats/export/csv - Export drafts to CSV format
-router.get("/export/csv", async (req, res) => {
+router.get("/export/csv", authenticateJWT as any, async (req: any, res: Response) => {
   try {
-    const players = await Player.find({ status: "sold" })
+    const userRole = req.user?.role;
+    let query: any = { status: "sold" };
+
+    if (userRole === "owner") {
+      const team = await Team.findOne({ ownerId: req.user?._id });
+      if (!team) {
+        return res.status(403).json({ message: "You don't have a team assigned." });
+      }
+      query.soldTo = team._id;
+    }
+
+    const players = await Player.find(query)
       .populate("soldTo", "teamName")
       .sort({ soldPrice: -1 })
       .lean();
@@ -92,9 +104,20 @@ router.get("/export/csv", async (req, res) => {
 });
 
 // GET /api/stats/export/pdf - Export drafts to PDF report
-router.get("/export/pdf", async (req, res) => {
+router.get("/export/pdf", authenticateJWT as any, async (req: any, res: Response) => {
   try {
-    const players = await Player.find({ status: "sold" })
+    const userRole = req.user?.role;
+    let query: any = { status: "sold" };
+
+    if (userRole === "owner") {
+      const team = await Team.findOne({ ownerId: req.user?._id });
+      if (!team) {
+        return res.status(403).json({ message: "You don't have a team assigned." });
+      }
+      query.soldTo = team._id;
+    }
+
+    const players = await Player.find(query)
       .populate("soldTo", "teamName")
       .sort({ soldPrice: -1 })
       .lean();

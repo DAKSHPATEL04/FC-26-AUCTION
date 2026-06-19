@@ -4,36 +4,49 @@ import { useState } from "react";
 import AuthenticatedLayout from "@/components/layout/AuthenticatedLayout";
 import { Download, FileSpreadsheet, FileText, Loader2, Sparkles, ShieldAlert } from "lucide-react";
 import { toast } from "@/lib/toast";
+import { api } from "@/lib/api";
 
 export default function ExportPage() {
   const [downloadingCsv, setDownloadingCsv] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
-  const handleExportCsv = () => {
+  const handleExportCsv = async () => {
     setDownloadingCsv(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      window.open(`${apiUrl}/api/stats/export/csv`, "_blank");
+      const response = await api.get("/api/stats/export/csv", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "draft-summary.csv");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
       toast.success("Exported CSV successfully.");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to trigger CSV export.");
+      toast.error(err.response?.data?.message || "Failed to trigger CSV export.");
     } finally {
-      setTimeout(() => setDownloadingCsv(false), 2000);
+      setDownloadingCsv(false);
     }
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-      window.open(`${apiUrl}/api/stats/export/pdf`, "_blank");
+      const response = await api.get("/api/stats/export/pdf", { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "draft-summary.pdf");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
       toast.success("Exported PDF successfully.");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error("Failed to trigger PDF export.");
+      toast.error(err.response?.data?.message || "Failed to trigger PDF export.");
     } finally {
-      setTimeout(() => setDownloadingPdf(false), 2000);
+      setDownloadingPdf(false);
     }
   };
 
