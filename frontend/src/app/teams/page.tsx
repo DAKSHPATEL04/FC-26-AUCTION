@@ -66,7 +66,7 @@ export default function TeamsPage() {
   const [teamName, setTeamName] = useState("");
   const [logo, setLogo] = useState("");
   const [ownerId, setOwnerId] = useState("");
-  const [totalBudget, setTotalBudget] = useState(1000);
+  const [totalBudget, setTotalBudget] = useState(1000000);
   const [color, setColor] = useState("#3B82F6");
 
   // Roster View Modal
@@ -105,7 +105,7 @@ export default function TeamsPage() {
     setTeamName("");
     setLogo("");
     setOwnerId("");
-    setTotalBudget(1000);
+    setTotalBudget(1000000);
     setColor("#3B82F6");
     setIsDrawerOpen(true);
   };
@@ -440,7 +440,6 @@ export default function TeamsPage() {
                       type="number"
                       required
                       min={10}
-                      max={100000}
                       value={totalBudget}
                       onChange={(e) => setTotalBudget(Number(e.target.value))}
                       className="w-full bg-background border border-border text-text-primary text-sm rounded-lg p-2.5 outline-none focus:border-accent-blue"
