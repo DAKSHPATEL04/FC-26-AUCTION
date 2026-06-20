@@ -234,14 +234,28 @@ function initAuctionSocket(io) {
                 return;
             if (!state.currentPlayer)
                 return;
+            // Stop the timer first so it doesn't interfere
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
             await handleUnsoldTransition();
         });
         // Force Sold transition
         socket.on("admin:sold", async () => {
             if (socket.data.user.role !== "admin")
                 return;
-            if (!state.currentPlayer || !state.highestBidder)
+            if (!state.currentPlayer)
                 return;
+            if (!state.highestBidder) {
+                socket.emit("auction:error", "Cannot mark sold: No bids have been placed! Use 'Mark Unsold' instead.");
+                return;
+            }
+            // Stop the timer first so it doesn't interfere
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
             await handleSoldTransition();
         });
         // Admin Undo last draft
@@ -351,6 +365,16 @@ async function handleSoldTransition() {
     const buyerName = state.highestBidder.teamName;
     const bidderColor = state.highestBidder.color || "#3B82F6";
     try {
+        const buyerColor = bidderColor;
+        // --- EMIT IMMEDIATELY BEFORE DB OPERATIONS TO TEST IF IT REACHES THE FRONTEND ---
+        ioInstance?.emit("auction:sold_broadcast", {
+            playerName: soldPlayerName,
+            buyerName,
+            price: finalPrice,
+            playerImage: player.image,
+            buyerColor,
+            teamId,
+        });
         // 1. Update Player document
         await Player_js_1.Player.findByIdAndUpdate(player._id, {
             status: "sold",
@@ -377,17 +401,6 @@ async function handleSoldTransition() {
             amount: finalPrice,
             isWinningBid: true,
         });
-        const buyerColor = team?.color || bidderColor;
-        // 1st: Fire the sold overlay broadcast BEFORE clearing currentPlayer from state
-        // so the frontend overlay has the player data it needs
-        ioInstance.emit("auction:sold_broadcast", {
-            playerName: soldPlayerName,
-            buyerName,
-            price: finalPrice,
-            playerImage: player.image,
-            buyerColor,
-            teamId,
-        });
         // 2nd: Now fully clear state (currentPlayer, bid, bidder, history)
         state.currentPlayer = null;
         state.currentBid = 0;
@@ -395,18 +408,22 @@ async function handleSoldTransition() {
         state.bidHistory = [];
         state.timer = 0;
         // status is already "idle" (set at top)
-        // 3rd: Broadcast the cleared state so all clients update the stage
-        broadcastState();
+        // 3rd: Delay broadcastState by 7s so the sold overlay has time to display on all clients
+        // (The frontend overlay auto-closes after 6 seconds)
+        setTimeout(() => broadcastState(), 7000);
     }
     catch (err) {
         console.error("Failed to complete SOLD transition:", err);
+        if (ioInstance) {
+            ioInstance.emit("auction:error", err.message || "Failed to complete SOLD transition");
+        }
         // On error, still clear to avoid stuck state
         state.currentPlayer = null;
         state.currentBid = 0;
         state.highestBidder = null;
         state.bidHistory = [];
         state.timer = 0;
-        broadcastState();
+        setTimeout(() => broadcastState(), 7000);
     }
 }
 // Resolve Auction: UNSOLD

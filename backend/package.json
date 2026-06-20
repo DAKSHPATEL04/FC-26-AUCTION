@@ -5,7 +5,6 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "postinstall": "chmod +x node_modules/.bin/tsc || true",
     "build": "tsc",
     "start": "node dist/server.js"
   },

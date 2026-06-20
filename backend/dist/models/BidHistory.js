@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BidHistory = void 0;
 const mongoose_1 = require("mongoose");
 const bidHistorySchema = new mongoose_1.Schema({
-    auctionId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Auction", required: true, index: true },
+    auctionId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Auction", required: false, index: true },
     playerId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Player", required: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", default: null },
     teamName: { type: String, default: "" },
