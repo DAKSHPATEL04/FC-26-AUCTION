@@ -111,7 +111,7 @@ export default function LiveAuctionPage() {
     playerImage?: string;
     buyerColor?: string;
   } | null>(null);
-  
+
   // Custom Bid Input
   const [customBid, setCustomBid] = useState("");
   // Admin Timer Control
@@ -240,7 +240,7 @@ export default function LiveAuctionPage() {
     newSocket.on("bid:broadcast", (data) => {
       if (soundEnabledRef.current && bidSoundRef.current) {
         bidSoundRef.current.currentTime = 0;
-        bidSoundRef.current.play().catch(() => {});
+        bidSoundRef.current.play().catch(() => { });
       }
       // Show bid toast to everyone
       const id = ++toastCounter.current;
@@ -262,13 +262,12 @@ export default function LiveAuctionPage() {
     });
 
     newSocket.on("auction:sold_broadcast", (data: any) => {
-      console.log("RECEIVED SOLD BROADCAST", data);
-      
+
       // Set ref FIRST before any state updates so auction:state handler sees it immediately
       overlayActiveRef.current = true;
       setSoldOverlay(data);
       if (soundEnabledRef.current && soldSoundRef.current) {
-        soldSoundRef.current.play().catch(() => {});
+        soldSoundRef.current.play().catch(() => { });
       }
       // Fire confetti!
       try {
@@ -347,7 +346,7 @@ export default function LiveAuctionPage() {
   useEffect(() => {
     if (status === "bidding" && timer <= 5 && timer > 0 && soundEnabledRef.current && timerSoundRef.current) {
       timerSoundRef.current.currentTime = 0;
-      timerSoundRef.current.play().catch(() => {});
+      timerSoundRef.current.play().catch(() => { });
     }
   }, [timer, status]);
 
@@ -444,17 +443,17 @@ export default function LiveAuctionPage() {
 
   // Fixed preset increments: bid at currentBid + 5000, 10000, 15000, 20000
   const presets = [
-    { label: "+5000",    value: currentBid + 5000 },
-    { label: "+10000",   value: currentBid + 10000 },
-    { label: "+15000",   value: currentBid + 15000 },
-    { label: "+20000",   value: currentBid + 20000 },
+    { label: "+5000", value: currentBid + 5000 },
+    { label: "+10000", value: currentBid + 10000 },
+    { label: "+15000", value: currentBid + 15000 },
+    { label: "+20000", value: currentBid + 20000 },
   ];
 
   // Colors based on positions
   const posColor =
     currentPlayer?.positionGroup === "GK" ? "#F59E0B" :
-    currentPlayer?.positionGroup === "DEF" ? "#3B82F6" :
-    currentPlayer?.positionGroup === "MID" ? "#22C55E" : "#EF4444";
+      currentPlayer?.positionGroup === "DEF" ? "#3B82F6" :
+        currentPlayer?.positionGroup === "MID" ? "#22C55E" : "#EF4444";
 
   // Check if owner is disabled from bidding
   const isHighestBidder = highestBidder?._id === ownerTeam?._id;
@@ -517,15 +516,15 @@ export default function LiveAuctionPage() {
             {isAdmin && (
               <div className="flex items-center gap-2 bg-surface border border-border p-1.5 rounded-xl">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary px-2">Timer (s)</span>
-                <input 
-                  type="number" 
-                  value={adminTimerInput} 
-                  onChange={(e) => setAdminTimerInput(e.target.value)} 
+                <input
+                  type="number"
+                  value={adminTimerInput}
+                  onChange={(e) => setAdminTimerInput(e.target.value)}
                   className="bg-background border border-border rounded-md px-2 py-1.5 text-text-primary focus:border-accent-blue outline-none w-16 text-center text-xs"
                 />
-                <button 
+                <button
                   onClick={setAuctionTimer}
-                  className="bg-accent-blue hover:bg-accent-blue/80 text-white px-3 py-1.5 rounded-md text-xs font-bold transition-colors"
+                  className="bg-accent-blue hover:bg-accent-blue/80 text-white px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer"
                 >
                   Set
                 </button>
@@ -606,11 +605,11 @@ export default function LiveAuctionPage() {
 
         {/* Main Stage Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-          
+
           {/* COLUMN 1: Active Player Card Showcase (xl:col-span-1) */}
           <div className="xl:col-span-1 flex flex-col gap-4">
             <div className="border border-border bg-surface rounded-2xl p-5 flex flex-col items-center relative overflow-hidden">
-              
+
               {/* Background Glow */}
               <div
                 className="absolute inset-x-0 top-0 h-40 opacity-15 blur-[50px] transition-colors pointer-events-none"
@@ -834,22 +833,21 @@ export default function LiveAuctionPage() {
 
           {/* COLUMN 2: Timer, Live Bidding Panel, Bidding Actions (xl:col-span-2) */}
           <div className="xl:col-span-2 flex flex-col gap-6">
-            
+
             {/* Live Bidding Dashboard */}
             <div className="border border-border bg-surface rounded-2xl p-6 flex flex-col gap-6">
-              
+
               {/* Countdown Timer Row */}
               <div className="flex flex-col items-center">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary mb-1">
                   Time Remaining
                 </span>
-                
+
                 {/* Timer text */}
-                <span className={`font-display text-6xl font-black tabular-nums transition-colors ${
-                  status === "paused" ? "text-text-muted" :
-                  timer <= 5 ? "text-accent-red animate-pulse" :
-                  timer <= 15 ? "text-accent-amber" : "text-accent-green"
-                }`}>
+                <span className={`font-display text-6xl font-black tabular-nums transition-colors ${status === "paused" ? "text-text-muted" :
+                    timer <= 5 ? "text-accent-red animate-pulse" :
+                      timer <= 15 ? "text-accent-amber" : "text-accent-green"
+                  }`}>
                   {timer}s
                 </span>
 
@@ -868,7 +866,7 @@ export default function LiveAuctionPage() {
 
               {/* Status and Bid Leader Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border pt-6">
-                
+
                 {/* Current Bid */}
                 <div className="bg-background border border-border p-4 rounded-xl flex flex-col items-center justify-center text-center">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted mb-1">
@@ -933,17 +931,15 @@ export default function LiveAuctionPage() {
                           key={p.label}
                           disabled={isDisabled}
                           onClick={() => placeBid(p.value)}
-                          className={`flex flex-col items-center justify-center rounded-xl border py-3.5 transition-all group ${
-                            isDisabled
+                          className={`flex flex-col items-center justify-center rounded-xl border py-3.5 transition-all group ${isDisabled
                               ? "opacity-40 cursor-not-allowed border-border bg-background"
                               : canAfford
-                              ? "border-border bg-background hover:border-accent-amber hover:bg-accent-amber/5 cursor-pointer"
-                              : "border-accent-red/30 bg-accent-red/5 cursor-pointer opacity-70"
-                          }`}
+                                ? "border-border bg-background hover:border-accent-amber hover:bg-accent-amber/5 cursor-pointer"
+                                : "border-accent-red/30 bg-accent-red/5 cursor-pointer opacity-70"
+                            }`}
                         >
-                          <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                            !canAfford ? "text-accent-red" : "text-text-muted group-hover:text-accent-amber"
-                          }`}>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${!canAfford ? "text-accent-red" : "text-text-muted group-hover:text-accent-amber"
+                            }`}>
                             {p.label}
                           </span>
                           <span className="font-display text-xl font-black text-text-primary mt-0.5 flex items-center gap-0.5">
@@ -1149,7 +1145,7 @@ export default function LiveAuctionPage() {
                     <User size={64} className="text-text-muted" />
                   </div>
                 )}
-                
+
                 {/* Badge for Rating & Position */}
                 {soldOverlay.rating && soldOverlay.position && (
                   <div className="absolute -bottom-2 -right-2 bg-background border-2 border-accent-amber/80 h-14 w-14 rounded-full flex flex-col items-center justify-center shadow-lg z-20">
@@ -1162,7 +1158,7 @@ export default function LiveAuctionPage() {
               <h2 className="font-display text-4xl font-black text-text-primary leading-tight">
                 {soldOverlay.playerName}
               </h2>
-              
+
               {(soldOverlay.club || soldOverlay.nation) && (
                 <p className="text-base text-text-secondary mt-2 flex items-center justify-center gap-2 font-medium">
                   {soldOverlay.club && <span>{soldOverlay.club}</span>}
