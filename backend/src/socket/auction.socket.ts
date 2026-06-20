@@ -185,6 +185,7 @@ export function initAuctionSocket(io: Server) {
 
         // Full Timer Reset: Reset the timer back to its maximum duration whenever a bid is placed
         state.timer = state.maxTimer;
+        console.log(`[TEST DEPLOY] Timer reset to ${state.maxTimer} after bid`);
 
         // Broadcast updated state
         broadcastState();
