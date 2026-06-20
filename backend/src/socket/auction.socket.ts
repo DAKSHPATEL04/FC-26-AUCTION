@@ -68,7 +68,7 @@ export function initAuctionSocket(io: Server) {
   // Middleware to authenticate socket connections
   io.use((socket: Socket, next) => {
     const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(" ")[1];
-    
+
     if (!token) {
       return next(new Error("Authentication error: Token missing"));
     }
@@ -84,7 +84,7 @@ export function initAuctionSocket(io: Server) {
 
   io.on("connection", (socket: Socket) => {
     console.log(`User connected to auction socket: ${socket.data.user.id} (${socket.data.user.role})`);
-    
+
     // Always send current auction state immediately upon joining
     socket.emit("auction:state", {
       currentPlayer: state.currentPlayer,
@@ -186,6 +186,9 @@ export function initAuctionSocket(io: Server) {
         // Full Timer Reset: Reset the timer back to its maximum duration whenever a bid is placed
         state.timer = state.maxTimer;
         console.log(`[TEST DEPLOY] Timer reset to ${state.maxTimer} after bid`);
+        
+        // Also restart the countdown loop so we get a full second before the next tick
+        startCountdown();
 
         // Broadcast updated state
         broadcastState();
@@ -239,7 +242,7 @@ export function initAuctionSocket(io: Server) {
       state.status = "bidding";
       state.timer = state.maxTimer;
       transitionInProgress = false;
-      
+
       startCountdown();
       broadcastState();
     });
@@ -251,7 +254,7 @@ export function initAuctionSocket(io: Server) {
 
       state.status = "paused";
       if (timerInterval) clearInterval(timerInterval);
-      
+
       broadcastState();
     });
 
@@ -262,7 +265,7 @@ export function initAuctionSocket(io: Server) {
 
       state.status = "bidding";
       startCountdown();
-      
+
       broadcastState();
     });
 
@@ -272,7 +275,7 @@ export function initAuctionSocket(io: Server) {
       const newTimer = Math.max(1, data.duration);
       state.maxTimer = newTimer;
       state.timer = newTimer;
-      
+
       broadcastState();
     });
 
@@ -307,7 +310,7 @@ export function initAuctionSocket(io: Server) {
     // Admin Undo last draft
     socket.on("admin:undo", async () => {
       if (socket.data.user.role !== "admin") return;
-      
+
       try {
         // Find last sold player (most recently updated/sold)
         const lastSoldPlayer = await Player.findOne({ status: "sold" }).sort({ soldAt: -1 });
@@ -396,7 +399,7 @@ function startCountdown() {
 
       // Set guard immediately so no second tick can sneak in during the async work
       transitionInProgress = true;
-      
+
       // Small delay so clients see "0s" before the sold/unsold overlay fires
       await new Promise((resolve) => setTimeout(resolve, 400));
 
