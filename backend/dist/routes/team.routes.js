@@ -39,7 +39,7 @@ router.get("/", async (req, res) => {
 // POST /api/teams - Admin: Create team
 router.post("/", auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_1.requireRole)(["admin"]), async (req, res) => {
     try {
-        const { teamName, logo, ownerId, totalBudget = 1000, color = "#3B82F6" } = req.body;
+        const { teamName, logo, ownerId, totalBudget = 1000000, color = "#3B82F6" } = req.body;
         if (!teamName) {
             return res.status(400).json({ message: "Team name is required" });
         }

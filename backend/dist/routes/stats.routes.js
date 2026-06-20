@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const auth_middleware_js_1 = require("../middleware/auth.middleware.js");
 const Team_js_1 = require("../models/Team.js");
 const Player_js_1 = require("../models/Player.js");
 // @ts-ignore
@@ -59,9 +60,18 @@ router.get("/", async (req, res) => {
     }
 });
 // GET /api/stats/export/csv - Export drafts to CSV format
-router.get("/export/csv", async (req, res) => {
+router.get("/export/csv", auth_middleware_js_1.authenticateJWT, async (req, res) => {
     try {
-        const players = await Player_js_1.Player.find({ status: "sold" })
+        const userRole = req.user?.role;
+        let query = { status: "sold" };
+        if (userRole === "owner") {
+            const team = await Team_js_1.Team.findOne({ ownerId: req.user?._id });
+            if (!team) {
+                return res.status(403).json({ message: "You don't have a team assigned." });
+            }
+            query.soldTo = team._id;
+        }
+        const players = await Player_js_1.Player.find(query)
             .populate("soldTo", "teamName")
             .sort({ soldPrice: -1 })
             .lean();
@@ -85,9 +95,18 @@ router.get("/export/csv", async (req, res) => {
     }
 });
 // GET /api/stats/export/pdf - Export drafts to PDF report
-router.get("/export/pdf", async (req, res) => {
+router.get("/export/pdf", auth_middleware_js_1.authenticateJWT, async (req, res) => {
     try {
-        const players = await Player_js_1.Player.find({ status: "sold" })
+        const userRole = req.user?.role;
+        let query = { status: "sold" };
+        if (userRole === "owner") {
+            const team = await Team_js_1.Team.findOne({ ownerId: req.user?._id });
+            if (!team) {
+                return res.status(403).json({ message: "You don't have a team assigned." });
+            }
+            query.soldTo = team._id;
+        }
+        const players = await Player_js_1.Player.find(query)
             .populate("soldTo", "teamName")
             .sort({ soldPrice: -1 })
             .lean();
