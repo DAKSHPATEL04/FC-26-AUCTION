@@ -183,10 +183,8 @@ export function initAuctionSocket(io: Server) {
           timestamp: new Date(),
         });
 
-        // Overtime / Sniper Protection: Reset timer back to 10 seconds if bid placed in last 10 seconds
-        if (state.timer < OVERTIME_SECONDS) {
-          state.timer = OVERTIME_SECONDS;
-        }
+        // Full Timer Reset: Reset the timer back to its maximum duration whenever a bid is placed
+        state.timer = state.maxTimer;
 
         // Broadcast updated state
         broadcastState();
