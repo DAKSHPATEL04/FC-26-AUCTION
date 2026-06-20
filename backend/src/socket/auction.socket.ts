@@ -108,37 +108,44 @@ export function initAuctionSocket(io: Server) {
 
         // Step 1: Authentication check
         if (!user) {
+          console.log("Bid rejected: No user");
           return socket.emit("bid:error", { message: "Auth Error: You must be logged in to bid." });
         }
 
         // Step 2: Authorization check
         if (user.role !== "owner") {
+          console.log("Bid rejected: Not owner");
           return socket.emit("bid:error", { message: "Auth Error: Only owners can place bids." });
         }
 
         // Step 3: Active Team check
         if (!user.teamId) {
+          console.log("Bid rejected: No teamId");
           return socket.emit("bid:error", { message: "Auth Error: You are not assigned to any team." });
         }
 
         // Fetch team details to validate
         const team = await Team.findById(user.teamId);
         if (!team) {
+          console.log("Bid rejected: Team not found in DB");
           return socket.emit("bid:error", { message: "Database Error: Bidding team not found." });
         }
 
         // Step 4: Active State check
         if (state.status !== "bidding") {
+          console.log("Bid rejected: Status is not bidding");
           return socket.emit("bid:error", { message: "Auction Error: Bidding is closed or paused." });
         }
 
         // Step 5: Active Player check
         if (!state.currentPlayer) {
+          console.log("Bid rejected: No active player");
           return socket.emit("bid:error", { message: "Auction Error: No player is currently up for bidding." });
         }
 
         // Step 6: Time limit check
         if (state.timer <= 0) {
+          console.log("Bid rejected: Timer expired");
           return socket.emit("bid:error", { message: "Auction Error: Timer has expired." });
         }
 
@@ -146,21 +153,25 @@ export function initAuctionSocket(io: Server) {
         const basePrice = state.currentPlayer.basePrice || 10;
         const minRequired = state.highestBidder ? state.currentBid + state.minBidIncrement : basePrice;
         if (amount < minRequired) {
+          console.log("Bid rejected: Amount too low");
           return socket.emit("bid:error", { message: `Bid too low! Minimum required bid is ${minRequired} coins.` });
         }
 
         // Step 8: Prevent Self-Overbid check
         if (state.highestBidder && state.highestBidder._id.toString() === team._id.toString()) {
+          console.log("Bid rejected: Self overbid");
           return socket.emit("bid:error", { message: "Auction Error: You are already the highest bidder." });
         }
 
         // Step 9: Remaining Budget check
         if (team.remainingBudget < amount) {
+          console.log("Bid rejected: Insufficient budget");
           return socket.emit("bid:error", { message: `Insufficient budget! Remaining budget: ${team.remainingBudget} coins.` });
         }
 
         // Step 10: Squad size check
         if (team.players.length >= MAX_SQUAD_SIZE) {
+          console.log("Bid rejected: Squad full");
           return socket.emit("bid:error", { message: `Squad is full! Maximum size is ${MAX_SQUAD_SIZE} players.` });
         }
 
