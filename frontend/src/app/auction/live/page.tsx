@@ -352,7 +352,12 @@ export default function LiveAuctionPage() {
 
   // Actions: Owner Bids
   const placeBid = (amount: number) => {
-    if (!socket) return;
+    console.log(`[DEBUG] Bid button clicked! Attempting to bid: ${amount}`);
+    if (!socket) {
+      console.log("[DEBUG] ERROR: socket is null! Cannot place bid.");
+      return;
+    }
+    console.log(`[DEBUG] Socket is active. Emitting bid:place event to backend...`);
     socket.emit("bid:place", { amount });
   };
 
