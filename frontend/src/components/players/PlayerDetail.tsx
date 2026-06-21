@@ -12,6 +12,7 @@ interface PlayerDetailModalProps {
   onAddToPool?: () => void;
   onAddToWatchlist?: () => void;
   isAdmin?: boolean;
+  isWatchlisted?: boolean;
   onPlayerUpdated?: (updatedPlayer: Player) => void;
 }
 
@@ -84,6 +85,7 @@ export default function PlayerDetailModal({
   onAddToPool,
   onAddToWatchlist,
   isAdmin,
+  isWatchlisted,
   onPlayerUpdated,
 }: PlayerDetailModalProps) {
   const [player, setPlayer] = useState(initialPlayer);
@@ -286,8 +288,8 @@ export default function PlayerDetailModal({
                 </button>
               )}
               {!isAdmin && onAddToWatchlist && (
-                <button onClick={onAddToWatchlist} className="flex-1 sm:flex-none bg-blue-500/10 border border-blue-500 hover:bg-blue-500/20 text-blue-500 px-6 py-2.5 rounded-lg font-bold text-sm transition-colors">
-                  + Watchlist
+                <button onClick={onAddToWatchlist} className={`flex-1 sm:flex-none ${isWatchlisted ? 'bg-red-500/10 border border-red-500 hover:bg-red-500/20 text-red-500' : 'bg-blue-500/10 border border-blue-500 hover:bg-blue-500/20 text-blue-500'} px-6 py-2.5 rounded-lg font-bold text-sm transition-colors`}>
+                  {isWatchlisted ? "- Remove Watchlist" : "+ Watchlist"}
                 </button>
               )}
               <button onClick={onClose} className="flex-1 sm:flex-none bg-[#333333] hover:bg-[#4B5563] text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-colors">

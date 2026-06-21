@@ -24,6 +24,7 @@ interface PlayerCardProps {
   onView: (player: Player) => void;
   onAddToPool?: (player: Player) => void;
   onAddToWatchlist?: (player: Player) => void;
+  isWatchlisted?: boolean;
 }
 
 export default function PlayerCard({
@@ -32,6 +33,7 @@ export default function PlayerCard({
   onView,
   onAddToPool,
   onAddToWatchlist,
+  isWatchlisted,
 }: PlayerCardProps) {
   const posColor = POSITION_COLORS[player.positionGroup] || "#FFFFFF";
   const initials = (player.commonName || player.name)
@@ -188,10 +190,14 @@ export default function PlayerCard({
         {!isAdmin && onAddToWatchlist && (
           <button
             onClick={(e) => { e.stopPropagation(); onAddToWatchlist(player); }}
-            title="Add to Watchlist"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-accent-blue bg-accent-blue/10 text-accent-blue hover:bg-accent-blue hover:text-white transition-all"
+            title={isWatchlisted ? "Remove from Watchlist" : "Add to Watchlist"}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border transition-all ${
+              isWatchlisted 
+                ? "border-accent-red bg-accent-red/10 text-accent-red hover:bg-accent-red hover:text-white"
+                : "border-accent-blue bg-accent-blue/10 text-accent-blue hover:bg-accent-blue hover:text-white"
+            }`}
           >
-            <Bookmark size={15} />
+            {isWatchlisted ? <Minus size={15} /> : <Bookmark size={15} />}
           </button>
         )}
       </motion.div>

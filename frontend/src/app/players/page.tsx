@@ -50,8 +50,8 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [watchlistIds, setWatchlistIds] = useState<Set<string>>(new Set());
 
-  // Fetch distinct filters
   const fetchFilterOptions = async () => {
     try {
       const res = await api.get("/api/players/filters");
@@ -60,6 +60,17 @@ export default function PlayersPage() {
       console.error("Failed to fetch filter options", err);
     }
   };
+
+  const fetchWatchlist = useCallback(async () => {
+    if (isAdmin || !user) return;
+    try {
+      const res = await api.get("/api/watchlist");
+      const ids = new Set<string>((res.data.players || []).map((p: any) => p._id));
+      setWatchlistIds(ids);
+    } catch (err: any) {
+      console.error("Failed to fetch watchlist", err);
+    }
+  }, [isAdmin, user]);
 
   // Fetch players matching filters
   const fetchPlayers = useCallback(async () => {
@@ -94,7 +105,8 @@ export default function PlayersPage() {
 
   useEffect(() => {
     fetchFilterOptions();
-  }, []);
+    fetchWatchlist();
+  }, [fetchWatchlist]);
 
   useEffect(() => {
     fetchPlayers();
@@ -152,6 +164,16 @@ export default function PlayersPage() {
       // Toggle watchlist on the backend
       const res = await api.post("/api/watchlist/toggle", { playerId: player._id });
       toast.success(res.data.message || "Watchlist updated successfully.");
+      
+      setWatchlistIds((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(player._id)) {
+          newSet.delete(player._id);
+        } else {
+          newSet.add(player._id);
+        }
+        return newSet;
+      });
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to update watchlist.");
     }
@@ -272,6 +294,7 @@ export default function PlayersPage() {
                       key={player._id}
                       player={player}
                       isAdmin={isAdmin}
+                      isWatchlisted={watchlistIds.has(player._id)}
                       onView={(p) => setSelectedPlayer(p)}
                       onAddToPool={handleAddToPool}
                       onAddToWatchlist={handleAddToWatchlist}
@@ -334,6 +357,7 @@ export default function PlayersPage() {
         <PlayerDetailModal
           player={selectedPlayer}
           isAdmin={isAdmin}
+          isWatchlisted={watchlistIds.has(selectedPlayer._id)}
           onClose={() => setSelectedPlayer(null)}
           onAddToPool={() => handleAddToPool(selectedPlayer)}
           onAddToWatchlist={() => handleAddToWatchlist(selectedPlayer)}
