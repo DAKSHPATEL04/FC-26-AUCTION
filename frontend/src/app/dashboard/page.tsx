@@ -284,7 +284,7 @@ export default function DashboardPage() {
                                 <div className="h-7 w-7 rounded-full border overflow-hidden bg-background">
                                   {player.image ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={player.image} alt={player.name} className="h-full w-full object-cover" />
+                                    <img src={player.image.startsWith("http") ? `/api/image-proxy?url=${encodeURIComponent(player.image)}` : player.image} alt={player.name} className="h-full w-full object-cover" />
                                   ) : (
                                     <span className="flex h-full w-full items-center justify-center text-[10px]">⚽</span>
                                   )}

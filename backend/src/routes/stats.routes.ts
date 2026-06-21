@@ -70,7 +70,7 @@ router.get("/export/csv", authenticateJWT as any, async (req: any, res: Response
     let query: any = { status: "sold" };
 
     if (userRole === "owner") {
-      const team = await Team.findOne({ ownerId: req.user?._id });
+      const team = await Team.findOne({ ownerId: req.user?.id });
       if (!team) {
         return res.status(403).json({ message: "You don't have a team assigned." });
       }
@@ -110,7 +110,7 @@ router.get("/export/pdf", authenticateJWT as any, async (req: any, res: Response
     let query: any = { status: "sold" };
 
     if (userRole === "owner") {
-      const team = await Team.findOne({ ownerId: req.user?._id });
+      const team = await Team.findOne({ ownerId: req.user?.id });
       if (!team) {
         return res.status(403).json({ message: "You don't have a team assigned." });
       }
